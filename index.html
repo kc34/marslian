@@ -1,45 +1,57 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Marsdew Valley</title>
+  <title>Marsdew Valley</title>
 </head>
 <body>
+  <div>
+    <h1>Lilian on Mars</h1>
+  </div>
+  <div style="display: flex">
+    <div style="flex: 1">
+      <p>Corn Count: <span id="corn-count">0</span></p>
 
-<canvas id="myCanvas">
-Your browser does not support the canvas element.
-</canvas>
+      <p>Corn Seed Count: <span id="corn-seed-count">0</span></p>
+    </div>
+    <div style="flex: 2">
+      <canvas id="myCanvas">
+      Your browser does not support the canvas element.
+      </canvas>
+    </div>
+    <div style="flex: 1">
 
-<style>
-html, body {
-  width:  100%;
-  height: 100%;
-  margin: 0px;
-  overflow: hidden;
-}
-</style>
+    </div>
+  </div>
 
-<script src="js/main.js"></script>
+  <style>
+    html, body {
+      width:  100%;
+      height: 100%;
+      margin: 0px;
+      overflow: hidden;
+    }
+  </style>
 
-<script>
+  <script src="js/main.js"></script>
 
-var game = new Game();
-setInterval(function() {
-    game.tick();
-}, 1000.0 / 60)
+  <script>
+    const message = "hello!";
+    var game = new Game();
+    setInterval(function() {
+        game.tick();
+    }, 1000.0 / 60)
 
-const canvas = document.getElementById("myCanvas");
-// Need to set the canvas's width and height with this, to avoid stretching the canvas.
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+    const canvas = document.getElementById("myCanvas");
+    // Need to set the canvas's width and height with this, to avoid stretching the canvas.
+    canvas.width = window.innerWidth / 2;
+    canvas.height = window.innerHeight / 2;
 
+    setInterval(function() { game.tick(); }, 1000.0 / 60)
+    setInterval(function() { game.draw(canvas); }, 1000.0 / 60)
+    window.addEventListener('keydown', function(key) { game.keydownHandler(key); });
+    window.addEventListener('keyup', function(key) { game.keyupHandler(key); });
+    canvas.addEventListener('click', function(click) { game.clickHandler(click); });
+  </script>
 
-setInterval(function() { game.tick(); }, 1000.0 / 60)
-const ctx = canvas.getContext("2d");
-setInterval(function() { game.draw(ctx); }, 1000.0 / 60)
-window.addEventListener('keydown', function(key) { game.keydownHandler(key); });
-window.addEventListener('keyup', function(key) { game.keyupHandler(key); });
-window.addEventListener('click', function(click) { game.clickHandler(click); });
-</script>
-
-</body>
+  </body>
 </html>

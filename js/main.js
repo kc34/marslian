@@ -128,14 +128,18 @@ class Game {
         for (const ageableComponent of this.ageableComponents.values()) {
             ageableComponent.age += 0.01;
         }
-
-        
     }
 
-    /** @param {CanvasRenderingContext2D} ctx */
-    draw(ctx) {
+    /** @param {HTMLCanvasElement} canvas */
+    draw(canvas) {
+        const ctx = canvas.getContext("2d");
+        canvas.width = window.innerWidth / 2;
+        canvas.height = window.innerHeight / 2;
+        console.log("filling rectangle!")
+        console.log(window.innerWidth);
+        console.log(window.innerHeight);
         ctx.fillStyle = "#888888";
-		ctx.fillRect( 0 , 0 , window.innerWidth , window.innerHeight );
+		ctx.fillRect( 0 , 0 , window.innerWidth / 2, window.innerHeight / 2);
 
         const entityQuery =
             /** @type {Map<number, [DrawableComponent, PositionComponent]>} */
@@ -156,17 +160,19 @@ class Game {
                 this.drawCircle(
                     drawableComponent,
                     ctx,
-                    (window.innerWidth / 2) - (cameraPositionComponent.x - positionComponent.x),
-                    (window.innerHeight / 2) - (cameraPositionComponent.y - positionComponent.y),
+                    (window.innerWidth / 4) - (cameraPositionComponent.x - positionComponent.x),
+                    (window.innerHeight / 4) - (cameraPositionComponent.y - positionComponent.y),
                     age);
             }
         }
 
-        ctx.fillStyle = "#FFFFFF";
-		ctx.font = "20px Courier New";
-		ctx.fillText("Lilian on Mars", 10, 25);
-		ctx.fillText("Corn Count: " + this.cornCount.toString(), 10, 75);
-		ctx.fillText("Corn Seeds: " + this.cornSeeds.toString(), 10, 100);
+        if (document.getElementById("corn-count").textContent != this.cornCount.toString()) {
+            document.getElementById("corn-count").textContent = this.cornCount.toString();
+        }
+        if (document.getElementById("corn-seed-count").textContent != this.cornSeeds.toString()) {
+            document.getElementById("corn-seed-count").textContent = this.cornSeeds.toString();
+        }
+        
     }
 
     /**
@@ -192,19 +198,20 @@ class Game {
 
     /** @param {MouseEvent} clickEvent */
     clickHandler(clickEvent) {
+        console.log(clickEvent);
         // first, try to determine where the user is clicking.
         var x;
         var y;
         if (this.fixedCamera) {
-            x = clickEvent.x;
-            y = clickEvent.y;
+            x = clickEvent.offsetX;
+            y = clickEvent.offsetY;
         } else {
             const cameraPositionComponent = this.positionComponents.get(this.cameraId);
             if (!cameraPositionComponent) {
                 return;
             }
-            x = clickEvent.x - window.innerWidth / 2 + cameraPositionComponent.x
-            y = clickEvent.y - window.innerHeight / 2 + cameraPositionComponent.y
+            x = clickEvent.offsetX - window.innerWidth / 4 + cameraPositionComponent.x
+            y = clickEvent.offsetY - window.innerHeight / 4 + cameraPositionComponent.y
         }
         
         // HarvestableSystem -- takes priority
