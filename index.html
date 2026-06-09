@@ -2,6 +2,7 @@
 <html>
 <head>
   <title>Marsdew Valley</title>
+  <script src=https://unpkg.com/peerjs@1.5.5/dist/peerjs.js></script>
 </head>
 <body>
   <div>
@@ -20,21 +21,8 @@
       </canvas>
     </div>
     <div style="flex: 1">
-    </div>
-  </div>
-    <div style="display: flex">
-    <div style="flex: 1">
-      <p>Corn Count: <span id="corn-count">0</span></p>
-
-      <p>Corn Seed Count: <span id="corn-seed-count">0</span></p>
-    </div>
-    <div style="flex: 2">
-      canvas2
-      <canvas id="myCanvas2">
-      Your browser does not support the canvas element.
-      </canvas>
-    </div>
-    <div style="flex: 1">
+      <button id="host-button">Host?</button>
+      <span id="my-id">No ID yet...</span>
     </div>
   </div>
 
@@ -71,22 +59,28 @@
     window.addEventListener('keyup', function(key) { viewController.keyupHandler(key); });
     canvas.addEventListener('click', function(click) { viewController.clickHandler(click); });
 
-    // Second player
+    // networking when someone clicks on the host button
+    const hostButton = document.getElementById('host-button');
+    hostButton.addEventListener('click', function() {
+      peer = new Peer();
 
-    var viewController2 = new ClientModel(model, "I", "K", "J", "L");
-    setInterval(function() {
-        viewController2.tick();
-    }, 1000.0 / 60)
+      peer.on('open', (id) => {
+        const idSpan = document.getElementById('my-id');
+        idSpan.textContent = id;
+      })
 
-    const canvas2 = document.getElementById("myCanvas2");
-    // Need to set the canvas's width and height with this, to avoid stretching the canvas.
-    canvas2.width = window.innerWidth / 2;
-    canvas2.height = window.innerHeight / 2;
+      peer.on('connection', (incomingConn) => {
+        console.log("someone connected!");
+        var remoteClient;
+        incomingConn.on('open', () => {
+          remoteClient = new RemoteClient(model, incomingConn);
+        })
 
-    setInterval(function() { viewController2.draw(canvas2); }, 1000.0 / 60)
-    window.addEventListener('keydown', function(key) { viewController2.keydownHandler(key); });
-    window.addEventListener('keyup', function(key) { viewController2.keyupHandler(key); });
-    canvas2.addEventListener('click', function(click) { viewController2.clickHandler(click); });
+        incomingConn.on('data', (data) => {
+          remoteClient.handleData(data);
+        });
+      });
+    });
   </script>
 
   </body>

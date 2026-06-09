@@ -110,28 +110,30 @@ class BaseModel {
 
     /** @param {GameEvent} gameEvent */
     sendEvent(gameEvent) {
-        if (gameEvent instanceof MoveEvent) {
-            const playerPositionComponent = this.poolsByComponentName.positionComponents[gameEvent.playerId];
+        if (!!gameEvent.moveEvent) {
+            const playerPositionComponent = this.poolsByComponentName.positionComponents[gameEvent.moveEvent.playerId];
             if (playerPositionComponent) {
-                playerPositionComponent.x = gameEvent.x;
-                playerPositionComponent.y = gameEvent.y;
+                playerPositionComponent.x = gameEvent.moveEvent.x;
+                playerPositionComponent.y = gameEvent.moveEvent.y;
             }
-        } else if (gameEvent instanceof HarvestEvent) {
-            delete this.poolsByComponentName.positionComponents[gameEvent.harvestableId];
-            delete this.poolsByComponentName.drawableComponents[gameEvent.harvestableId];
-            delete this.poolsByComponentName.ageableComponents[gameEvent.harvestableId];
-            delete this.poolsByComponentName.harvestableComponents[gameEvent.harvestableId];
+        } else if (!!gameEvent.harvestEvent) {
+            delete this.poolsByComponentName.positionComponents[gameEvent.harvestEvent.harvestableId];
+            delete this.poolsByComponentName.drawableComponents[gameEvent.harvestEvent.harvestableId];
+            delete this.poolsByComponentName.ageableComponents[gameEvent.harvestEvent.harvestableId];
+            delete this.poolsByComponentName.harvestableComponents[gameEvent.harvestEvent.harvestableId];
             this.cornCount += 1
             this.cornSeeds += 2;
-        } else if (gameEvent instanceof PlantEvent) {
-            this.makeCorn(gameEvent.x, gameEvent.y);
-        } else if (gameEvent instanceof NewPlayerEvent) {
-            this.entityIds.add(gameEvent.playerId);
-            this.poolsByComponentName.positionComponents[gameEvent.playerId] = {x: gameEvent.x, y: gameEvent.y};
-            this.poolsByComponentName.drawableComponents[gameEvent.playerId] = {color: gameEvent.color, label: gameEvent.label};
-            this.entityIds.add(gameEvent.cameraId);
-            this.poolsByComponentName.positionComponents[gameEvent.cameraId] = {x: 10, y: 10};
-            this.poolsByComponentName.followPlayerComponents[gameEvent.cameraId] = {maxDistanceFromPlayer: 150, followingId: gameEvent.playerId};
+        } else if (!!gameEvent.plantEvent) {
+            this.makeCorn(gameEvent.plantEvent.x, gameEvent.plantEvent.y);
+        } else if (!!gameEvent.newPlayerEvent) {
+            this.entityIds.add(gameEvent.newPlayerEvent.playerId);
+            this.poolsByComponentName.positionComponents[gameEvent.newPlayerEvent.playerId] = {x: gameEvent.newPlayerEvent.x, y: gameEvent.newPlayerEvent.y};
+            this.poolsByComponentName.drawableComponents[gameEvent.newPlayerEvent.playerId] = {color: gameEvent.newPlayerEvent.color, label: gameEvent.newPlayerEvent.label};
+            this.entityIds.add(gameEvent.newPlayerEvent.cameraId);
+            this.poolsByComponentName.positionComponents[gameEvent.newPlayerEvent.cameraId] = {x: 10, y: 10};
+            this.poolsByComponentName.followPlayerComponents[gameEvent.newPlayerEvent.cameraId] = {maxDistanceFromPlayer: 150, followingId: gameEvent.newPlayerEvent.playerId};
+        } else {
+            console.log("unrecognized game event!!");
         }
     }
 }
@@ -158,7 +160,6 @@ class HostModel extends BaseModel {
     /**
      * When a player connects, add them here, and also send them the game state.
      * @param {ClientModel} clientModel
-     * @returns {[string, string, number, number]}
      */
     connect(clientModel) {
         const playerId = this.getNextId();
@@ -169,10 +170,10 @@ class HostModel extends BaseModel {
 
         var newPlayerEvent;
         if (this.players == 0) {
-            newPlayerEvent = new NewPlayerEvent(playerId, x, y, "#7b00ffff", "Lilian <3", cameraId, 10, 10);
+            newPlayerEvent = {newPlayerEvent: {playerId: playerId, x: x, y: y, color: "#7b00ffff", label: "Lilian <3", cameraId: cameraId, cameraX: 10, cameraY: 10}};
             this.players += 1;
         } else {
-            newPlayerEvent = new NewPlayerEvent(playerId, x, y, "#262fb1", "Kevin", cameraId, 10, 10);
+            newPlayerEvent = {newPlayerEvent: {playerId: playerId, x: x, y: y, color: "#262fb1", label: "Kevin :)", cameraId: cameraId, cameraX: 10, cameraY: 10}};
             this.players += 1;
         }
         this.sendEvent(newPlayerEvent);
@@ -181,7 +182,7 @@ class HostModel extends BaseModel {
         }
         this.connections.set(playerId, clientModel);
 
-        return [JSON.stringify(this.poolsByComponentName), JSON.stringify([...this.entityIds]), playerId, cameraId];
+        clientModel.connect([JSON.stringify(this.poolsByComponentName), JSON.stringify([...this.entityIds]), playerId, cameraId]);
     }
     
     /** @param {GameEvent} gameEvent */
@@ -189,7 +190,19 @@ class HostModel extends BaseModel {
         super.sendEvent(gameEvent)
         for (const playerId of this.connections.keys()) {
             const connection = this.connections.get(playerId);
-            if (!!connection && gameEvent.playerId != playerId) {
+            var eventPlayerId;
+            if (!!gameEvent.moveEvent) {
+                eventPlayerId = gameEvent.moveEvent.playerId;
+            } else if (!!gameEvent.harvestEvent) {
+                eventPlayerId = gameEvent.harvestEvent.playerId;
+            } else if (!!gameEvent.plantEvent) {
+                eventPlayerId = gameEvent.plantEvent.playerId;
+            } else if (!!gameEvent.newPlayerEvent) {
+                eventPlayerId = gameEvent.newPlayerEvent.playerId;
+            } else {
+                console.log("unrecognized game event!!");
+            }
+            if (!!connection && eventPlayerId != playerId) {
                 connection.sendEvent(gameEvent);
             }
         }
@@ -202,8 +215,8 @@ class ClientModel extends BaseModel {
     pressedKeys = new Set();
 
     // singleton entities
-    /** @type {number} */ playerId;
-    /** @type {number} */ cameraId;
+    /** @type {number|undefined} */ playerId;
+    /** @type {number|undefined} */ cameraId;
 
     /**
      * @param {HostModel} model 
@@ -216,6 +229,9 @@ class ClientModel extends BaseModel {
         this.left = left;
         this.right = right;
         var data = this.model.connect(this);
+    }
+
+    connect(data) {
         this.poolsByComponentName = JSON.parse(data[0]);
         this.entityIds = new Set(JSON.parse(data[1]));
         this.playerId = data[2];
@@ -240,7 +256,7 @@ class ClientModel extends BaseModel {
             if (this.pressedKeys.has(this.right)) {
                 playerPositionComponent.x += 2;
             }
-            this.model.sendEvent(new MoveEvent(this.playerId, playerPositionComponent.x, playerPositionComponent.y));
+            this.model.sendEvent({moveEvent: {playerId: this.playerId, x: playerPositionComponent.x, y: playerPositionComponent.y}});
         }
     }
 
@@ -330,7 +346,7 @@ class ClientModel extends BaseModel {
                     delete this.poolsByComponentName.harvestableComponents[entityId];
                     this.cornCount += 1
                     this.cornSeeds += 2;
-                    this.model.sendEvent(new HarvestEvent(this.playerId, entityId));
+                    this.model.sendEvent({harvestEvent: {playerId: this.playerId, harvestableId: entityId}});
                 }
                 return;
             }
@@ -342,6 +358,7 @@ class ClientModel extends BaseModel {
             if (this.cornSeeds > 0) {
                 this.cornSeeds -= 1;
                 this.makeCorn(x, y);
+                this.model.sendEvent({plantEvent: {playerId: this.playerId, x: x, y: y}});
             }
         }
     }
@@ -359,77 +376,118 @@ class ClientModel extends BaseModel {
     }
 }
 
-/** @interface */
-class GameEvent {
+/**
+ * @typedef {Object} Connection
+ * @property {function(string): void} send
+ */
+
+class RemoteClient {
     /**
-     * @param {number} playerId
+     * @param {HostModel} model 
+     * @param {Connection} incomingConn
      */
-    constructor(playerId) {
-        this.playerId = playerId;
+    constructor(model, incomingConn) {
+        this.model = model;
+        this.incomingConn = incomingConn;
+    }
+
+    /**
+     * @param {*} data 
+     */
+    connect(data) {
+        this.incomingConn.send(JSON.stringify(data))
+    }
+
+    /**
+     * @param {GameEvent} gameEvent 
+     */
+    sendEvent(gameEvent) {
+        this.incomingConn.send(JSON.stringify({gameEvent: gameEvent}));
+    }
+
+    handleData(data) {
+        const parsedData = JSON.parse(data);
+        if (parsedData === "connect-me") {
+            this.model.connect(this);
+        } else {
+            this.model.sendEvent(parsedData.gameEvent);
+        }
     }
 }
 
-/** @implements {GameEvent} */
-class NewPlayerEvent extends GameEvent {
+class RemoteHost {
     /**
-     * @param {number} playerId 
-     * @param {number} x 
-     * @param {number} y 
-     * @param {string} color
-     * @param {string} label
-     * @param {number} cameraId
-     * @param {number} cameraX
-     * @param {number} cameraY
+     * 
+     * @param {*} connection 
      */
-    constructor(playerId, x, y, color, label, cameraId, cameraX, cameraY) {
-        super(playerId);
-        this.x = x;
-        this.y = y;
-        this.color = color;
-        this.label = label;
-        this.cameraId = cameraId;
-        this.cameraX = cameraX;
-        this.cameraY = cameraY;
+    constructor(connection) {
+        this.connection = connection;
+    }
+
+    /**
+     * @param {ClientModel} clientModel 
+     */
+    connect(clientModel) {
+        this.connection.send(JSON.stringify("connect-me"));
+        this.clientModel = clientModel;
+    }
+
+    sendEvent(gameEvent) {
+        console.log("Sending over game event!");
+        this.connection.send(JSON.stringify({gameEvent: gameEvent}))
+    }
+
+    handleData(data) {
+        const parsedData = JSON.parse(data);
+        if (!!parsedData["gameEvent"]) {
+            this.clientModel.sendEvent(parsedData.gameEvent);
+        } else {
+            // assume initial connection data
+            this.clientModel.connect(parsedData);
+        }
     }
 }
 
-/** @implements {GameEvent} */
-class MoveEvent extends GameEvent {
-    /**
-     * @param {number} playerId 
-     * @param {number} x 
-     * @param {number} y 
-     */
-    constructor(playerId, x, y) {
-        super(playerId);
-        this.x = x;
-        this.y = y;
-    }
-}
+/**
+ * @typedef {Object} GameEvent
+ * @property {NewPlayerEvent=} newPlayerEvent
+ * @property {MoveEvent=} moveEvent
+ * @property {HarvestEvent=} harvestEvent
+ * @property {PlantEvent=} plantEvent
+ */
 
-class HarvestEvent extends GameEvent {
-    /**
-     * @param {number} playerId 
-     * @param {number} harvestableId
-     */
-    constructor(playerId, harvestableId) {
-        super(playerId);
-        this.harvestableId = harvestableId;
-    }
-}
+/**
+ * @typedef {Object} NewPlayerEvent
+ * @property {number} playerId 
+ * @property {number} x 
+ * @property {number} y 
+ * @property {string} color
+ * @property {string} label
+ * @property {number} cameraId
+ * @property {number} cameraX
+ * @property {number} cameraY
+ */
 
-class PlantEvent extends GameEvent {
-    /**
-     * @param {number} playerId 
-     * @param {number} x 
-     * @param {number} y 
-     */
-    constructor(playerId, x, y) {
-        super(playerId);
-        this.x = x;
-        this.y = y;
-    }
-}
+/**
+ * @typedef {Object} MoveEvent
+ * @property {number} playerId
+ * @property {number} x
+ * @property {number} y
+ */
+
+
+/**
+ * @typedef {Object} HarvestEvent
+ * @property {number} playerId
+ * @property {number} harvestableId
+ */
+
+/**
+ * @typedef {Object} PlantEvent
+ * @property {number} playerId
+ * @property {number} x
+ * @property {number} y
+ */
 
 /**
  * @typedef {Object} Component
