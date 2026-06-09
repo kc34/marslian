@@ -1,19 +1,9 @@
-/**
- * Game engine. Just a big-ass bag of Entities and a camera.
- */
-class Game {
-    // game state
-    pressedKeys = new Set();
+class BaseModel {
     cornCount = 0;
     cornSeeds = 5;
 
     // entity creation
-    entityId = -1;
     /** @type {Set<number>} */ entityIds = new Set();
-
-    // singleton entities
-    /** @type {number} */ playerId;
-    /** @type {number} */ cameraId;
 
     // component pools
     /** @type {Map<string, Map<number, Component>>} */ poolsByComponentName = new Map();
@@ -23,37 +13,17 @@ class Game {
     /** @type {Map<number, AgeableComponent>} */ ageableComponents = new Map();
     /** @type {Map<number, HarvestableComponent>} */ harvestableComponents = new Map();
 
-    // debug
-    fixedCamera = false;
-
     constructor() {
         // set up component pool
-        this.poolsByComponentName.set(PositionComponent.name, this.positionComponents);
-        this.poolsByComponentName.set(DrawableComponent.name, this.drawableComponents);
-        this.poolsByComponentName.set(FollowPlayerComponent.name, this.followPlayerComponents);
-        this.poolsByComponentName.set(AgeableComponent.name, this.ageableComponents);
-        this.poolsByComponentName.set(HarvestableComponent.name, this.harvestableComponents);
-
-        this.playerId = this.getNextId();
-        this.entityIds.add(this.playerId);
-        this.positionComponents.set(this.playerId, new PositionComponent(10, 10));
-        this.drawableComponents.set(this.playerId, new DrawableComponent("#7b00ffff", "Lilian <3"));
-
-        this.cameraId = this.getNextId();
-        this.entityIds.add(this.cameraId);
-        this.positionComponents.set(this.cameraId, new PositionComponent(10, 10))
-        this.drawableComponents.set(this.cameraId, new DrawableComponent("#000000"));
-        this.followPlayerComponents.set(this.cameraId, new FollowPlayerComponent());
-
-        this.makeCorn(Math.random() * 500 - 250, Math.random() * 500 - 250);
-        this.makeCorn(Math.random() * 500 - 250, Math.random() * 500 - 250);
-        this.makeCorn(Math.random() * 500 - 250, Math.random() * 500 - 250);
-        this.makeCorn(Math.random() * 500 - 250, Math.random() * 500 - 250);
+        this.poolsByComponentName.set("PositionComponent", this.positionComponents);
+        this.poolsByComponentName.set("DrawableComponent", this.drawableComponents);
+        this.poolsByComponentName.set("FollowPlayerComponent", this.followPlayerComponents);
+        this.poolsByComponentName.set("AgeableComponent", this.ageableComponents);
+        this.poolsByComponentName.set("HarvestableComponent", this.harvestableComponents);
     }
     
     getNextId() {
-        this.entityId += 1;
-        return this.entityId;
+        return this.entityIds.size;
     }
 
     /**
@@ -83,44 +53,31 @@ class Game {
     }
 
     tick() {
-        const playerPositionComponent = this.positionComponents.get(this.playerId);
-        if (!!playerPositionComponent) {
-            // ControllableSystem
-            if (this.pressedKeys.has("W")) {
-                playerPositionComponent.y -= 1;
+        // FollowPlayerSystem
+        const entityQuery =
+            /** @type {Map<number, [FollowPlayerComponent, PositionComponent]>} */
+            (this.query(["FollowPlayerComponent", "PositionComponent"]));
+        for (const [_, [followPlayerComponent, positionComponent]] of entityQuery) {
+            const maxDistanceFromPlayer = followPlayerComponent.maxDistanceFromPlayer;
+            const playerPositionComponent = this.positionComponents.get(followPlayerComponent.followingId);
+            if (!playerPositionComponent) {
+                continue;
             }
-            if (this.pressedKeys.has("S")) {
-                playerPositionComponent.y += 1;
+            // Follow player if player leaves box.
+            // I did try a circle at one point, but this was actually much less fun
+            // and made me dizzy. (Basically, if you were on the lower half of the screen
+            // and walked left, you would get pushed up to the middle of the screen.)
+            if (positionComponent.x - playerPositionComponent.x > maxDistanceFromPlayer) {
+                positionComponent.x = playerPositionComponent.x + maxDistanceFromPlayer;
             }
-            if (this.pressedKeys.has("A")) {
-                playerPositionComponent.x -= 1;
+            if (positionComponent.x - playerPositionComponent.x < -1 * maxDistanceFromPlayer) {
+                positionComponent.x = playerPositionComponent.x - maxDistanceFromPlayer;
             }
-            if (this.pressedKeys.has("D")) {
-                playerPositionComponent.x += 1;
+            if (positionComponent.y - playerPositionComponent.y > maxDistanceFromPlayer) {
+                positionComponent.y = playerPositionComponent.y + maxDistanceFromPlayer;
             }
-
-            // FollowPlayerSystem
-            const entityQuery =
-                /** @type {Map<number, [FollowPlayerComponent, PositionComponent]>} */
-                (this.query([FollowPlayerComponent.name, PositionComponent.name]));
-            for (const [_, [followPlayerComponent, positionComponent]] of entityQuery) {
-                const maxDistanceFromPlayer = followPlayerComponent.maxDistanceFromPlayer;
-                // Follow player if player leaves box.
-                // I did try a circle at one point, but this was actually much less fun
-                // and made me dizzy. (Basically, if you were on the lower half of the screen
-                // and walked left, you would get pushed up to the middle of the screen.)
-                if (positionComponent.x - playerPositionComponent.x > maxDistanceFromPlayer) {
-                    positionComponent.x = playerPositionComponent.x + maxDistanceFromPlayer;
-                }
-                if (positionComponent.x - playerPositionComponent.x < -1 * maxDistanceFromPlayer) {
-                    positionComponent.x = playerPositionComponent.x - maxDistanceFromPlayer;
-                }
-                if (positionComponent.y - playerPositionComponent.y > maxDistanceFromPlayer) {
-                    positionComponent.y = playerPositionComponent.y + maxDistanceFromPlayer;
-                }
-                if (positionComponent.y - playerPositionComponent.y < -1 * maxDistanceFromPlayer) {
-                    positionComponent.y = playerPositionComponent.y - maxDistanceFromPlayer;
-                }
+            if (positionComponent.y - playerPositionComponent.y < -1 * maxDistanceFromPlayer) {
+                positionComponent.y = playerPositionComponent.y - maxDistanceFromPlayer;
             }
         }
 
@@ -130,31 +87,159 @@ class Game {
         }
     }
 
+    /**
+     * @param {number} x
+     * @param {number} y
+     */
+    makeCorn(x, y) {
+        const cornId = this.getNextId();
+        this.entityIds.add(cornId);
+        this.positionComponents.set(cornId, {x: x, y: y});
+        this.drawableComponents.set(cornId, {color: "#ffff00"});
+        this.ageableComponents.set(cornId, {age: 0});
+        this.harvestableComponents.set(cornId, {});
+    }
+
+}
+
+/**
+ * Game engine. Just a big-ass bag of Entities and a camera.
+ */
+class HostModel extends BaseModel {
+
+    /** @type {GameEvent[]} */
+    events = [];
+
+    constructor() {
+        super();
+        this.makeCorn(Math.random() * 500 - 250, Math.random() * 500 - 250);
+        this.makeCorn(Math.random() * 500 - 250, Math.random() * 500 - 250);
+        this.makeCorn(Math.random() * 500 - 250, Math.random() * 500 - 250);
+        this.makeCorn(Math.random() * 500 - 250, Math.random() * 500 - 250);
+    }
+
+    /**
+     * When a player connects, add them here, and also send them the game state.
+     * @returns {[Map<string, Map<number, Component>>, Set<number>, number, number]}
+     */
+    connect() {
+        const playerId = this.getNextId();
+        this.entityIds.add(playerId);
+        this.positionComponents.set(playerId, {x: 10, y: 10});
+        this.drawableComponents.set(playerId, {color: "#7b00ffff", label: "Lilian <3"});
+
+        const cameraId = this.getNextId();
+        this.entityIds.add(cameraId);
+        this.positionComponents.set(cameraId, {x: 10, y: 10})
+        this.followPlayerComponents.set(cameraId, {maxDistanceFromPlayer: 150, followingId: playerId});
+
+        return [this.poolsByComponentName, this.entityIds, playerId, cameraId];
+    }
+
+    tick() {
+        // Manage Client actions first, then run frames.
+        for (const event in this.events) {
+            if (event instanceof MoveEvent) {
+                const playerPositionComponent = this.positionComponents.get(event.playerId);
+                if (playerPositionComponent) {
+                    playerPositionComponent.x = event.x;
+                    playerPositionComponent.y = event.y;
+                }
+            } else if (event instanceof HarvestEvent) {
+                // this.positionComponents.delete(event.harvestableId);
+                // this.drawableComponents.delete(event.harvestableId);
+                // this.ageableComponents.delete(event.harvestableId);
+                // this.harvestableComponents.delete(event.harvestableId);
+                this.cornCount += 1
+                this.cornSeeds += 2;
+            } else if (event instanceof PlantEvent) {
+                // this.makeCorn(event.x, event.y);
+            }
+        }
+
+        super.tick()
+    }
+
+    /** @param {GameEvent[]} events */
+    addEvents(events) {
+        for (const gameEvent in events) {
+            this.events.push(gameEvent);
+        }
+    }
+}
+
+class ClientModel extends BaseModel {
+    // game state
+    pressedKeys = new Set();
+
+    // singleton entities
+    /** @type {number} */ playerId;
+    /** @type {number} */ cameraId;
+
+    /**
+     * @param {Model} model 
+     */
+    constructor(model, up, down, left, right) {
+        super();
+        this.model = model;
+        this.up = up;
+        this.down = down;
+        this.left = left;
+        this.right = right;
+        var data = this.model.connect();
+        this.poolsByComponentName = data[0];
+        this.positionComponents = this.poolsByComponentName.get("PositionComponent");
+        this.drawableComponents = this.poolsByComponentName.get("DrawableComponent");
+        this.followPlayerComponents = this.poolsByComponentName.get("FollowPlayerComponent");
+        this.ageableComponents = this.poolsByComponentName.get("AgeableComponent");
+        this.harvestableComponents = this.poolsByComponentName.get("HarvestableComponent");
+        this.entityIds = data[1]
+        this.playerId = data[2];
+        this.cameraId = data[3];
+    }
+
+    tick() {
+        // Run client frame first, then send events.
+        super.tick();
+
+        const playerPositionComponent = this.positionComponents.get(this.playerId);
+        if (!!playerPositionComponent && this.pressedKeys.size > 0) {
+            // ControllableSystem
+            if (this.pressedKeys.has(this.up)) {
+                playerPositionComponent.y -= 2;
+            }
+            if (this.pressedKeys.has(this.down)) {
+                playerPositionComponent.y += 2;
+            }
+            if (this.pressedKeys.has(this.left)) {
+                playerPositionComponent.x -= 2;
+            }
+            if (this.pressedKeys.has(this.right)) {
+                playerPositionComponent.x += 2;
+            }
+            this.model.addEvents(new MoveEvent(this.playerId, playerPositionComponent.x, playerPositionComponent.y));
+        }
+    }
+
     /** @param {HTMLCanvasElement} canvas */
     draw(canvas) {
-        const ctx = canvas.getContext("2d");
+        const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext("2d"));
         canvas.width = window.innerWidth / 2;
         canvas.height = window.innerHeight / 2;
-        console.log("filling rectangle!")
-        console.log(window.innerWidth);
-        console.log(window.innerHeight);
         ctx.fillStyle = "#888888";
 		ctx.fillRect( 0 , 0 , window.innerWidth / 2, window.innerHeight / 2);
 
         const entityQuery =
             /** @type {Map<number, [DrawableComponent, PositionComponent]>} */
-            (this.query([DrawableComponent.name, PositionComponent.name]));
+            (this.query(["DrawableComponent", "PositionComponent"]));
         for (const [entityId, [drawableComponent, positionComponent]] of entityQuery) {
             if (entityId == this.cameraId) {
                 continue;
             }
-            if (this.fixedCamera) {
+            const cameraPositionComponent = this.positionComponents.get(this.cameraId);
+            if (!cameraPositionComponent) {
                 this.drawCircle(drawableComponent, ctx, positionComponent.x, positionComponent.y);
             } else {
-                const cameraPositionComponent = this.positionComponents.get(this.cameraId);
-                if (!cameraPositionComponent) {
-                    continue;
-                }
                 const ageableComponent = this.ageableComponents.get(entityId);
                 const age = !!ageableComponent ? ageableComponent.age : undefined;
                 this.drawCircle(
@@ -172,7 +257,6 @@ class Game {
         if (document.getElementById("corn-seed-count").textContent != this.cornSeeds.toString()) {
             document.getElementById("corn-seed-count").textContent = this.cornSeeds.toString();
         }
-        
     }
 
     /**
@@ -198,7 +282,6 @@ class Game {
 
     /** @param {MouseEvent} clickEvent */
     clickHandler(clickEvent) {
-        console.log(clickEvent);
         // first, try to determine where the user is clicking.
         var x;
         var y;
@@ -217,16 +300,19 @@ class Game {
         // HarvestableSystem -- takes priority
         const entityQuery =
             /** @type {Map<number, [HarvestableComponent, PositionComponent, AgeableComponent]>} */
-            (this.query([HarvestableComponent.name, PositionComponent.name, AgeableComponent.name]));
+            (this.query(["HarvestableComponent", "PositionComponent", "AgeableComponent"]));
         for (const [entityId, [_, positionComponent, ageableComponent]] of entityQuery) {
             if (Math.abs(x - positionComponent.x) < 25 && Math.abs(y - positionComponent.y) < 25) {
                 if (ageableComponent.age >= Math.PI * 2) {
+                    console.log("harvest registered!");
+                    console.log(entityId);
                     this.positionComponents.delete(entityId);
                     this.drawableComponents.delete(entityId);
                     this.ageableComponents.delete(entityId);
                     this.harvestableComponents.delete(entityId);
                     this.cornCount += 1
                     this.cornSeeds += 2;
+                    this.model.addEvents(new HarvestEvent(this.playerId, entityId));
                 }
                 return;
             }
@@ -253,62 +339,63 @@ class Game {
         const key = String.fromCharCode(keyEvent.keyCode);
         this.pressedKeys.delete(key);
     }
+}
 
-    /**
-     * @param {number} x
-     * @param {number} y
-     */
-    makeCorn(x, y) {
-        const cornId = this.getNextId();
-        this.entityIds.add(cornId);
-        this.positionComponents.set(cornId, new PositionComponent(x, y));
-        this.drawableComponents.set(cornId, new DrawableComponent("#ffff00"));
-        this.ageableComponents.set(cornId, new AgeableComponent());
-        this.harvestableComponents.set(cornId, new HarvestableComponent());
+/** @interface */
+class GameEvent {}
+
+/** @implements {GameEvent} */
+class MoveEvent {
+    constructor(playerId, x, y) {
+        this.playerId = playerId;
+        this.x = x;
+        this.y = y;
+    }
+}
+
+/** @implements {GameEvent} */
+class HarvestEvent {
+    constructor(playerId, harvestableId) {
+        this.playerId = playerId;
+        this.harvestableId = harvestableId;
+    }
+}
+
+/** @implements {GameEvent} */
+class PlantEvent {
+    constructor(playerId, x, y) {
+        this.playerId = playerId;
+        this.x = x;
+        this.y = y;
     }
 }
 
 /** @interface */
 class Component {}
 
-/** @implements {Component} */
-class PositionComponent {
-    /** @type {number} */ x;
-    /** @type {number} */ y;
-    
-    /**
-     * @param {number} x
-     * @param {number} y
-     */
-    constructor(x, y) {
-        this.x = x;
-        this.y = y;
-    }
-}
-
-class DrawableComponent {
-    /** @type {string} */ color;
-    /** @type {string|undefined} */ label;
-
-    /**
-     * @param {string} color
-     * @param {string} [label]
-     */ 
-    constructor(color, label) {
-        this.color = color;
-        this.label = label;
-    }
-}
+/**
+ * @typedef {Object} PositionComponent
+ * @property {number} x
+ * @property {number} y
+ */
 
 /**
- * Singleton that trails behind Player singleton.
+ * @typedef {Object} DrawableComponent
+ * @property {string} color
+ * @property {string|undefined} label
  */
-class FollowPlayerComponent {
-    maxDistanceFromPlayer = 250;
-}
 
-class AgeableComponent {
-    age = 0;
-}
+/**
+ * @typedef {Object} FollowPlayerComponent
+ * @property {number} maxDistanceFromPlayer
+ * @property {number} followingId
+ */
 
-class HarvestableComponent {}
+/**
+ * @typedef {Object} AgeableComponent
+ * @property {number} age
+ */
+
+/**
+ * @typedef {Object} HarvestableComponent
+ */

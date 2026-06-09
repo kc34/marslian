@@ -14,12 +14,27 @@
       <p>Corn Seed Count: <span id="corn-seed-count">0</span></p>
     </div>
     <div style="flex: 2">
+      canvas1
       <canvas id="myCanvas">
       Your browser does not support the canvas element.
       </canvas>
     </div>
     <div style="flex: 1">
+    </div>
+  </div>
+    <div style="display: flex">
+    <div style="flex: 1">
+      <p>Corn Count: <span id="corn-count">0</span></p>
 
+      <p>Corn Seed Count: <span id="corn-seed-count">0</span></p>
+    </div>
+    <div style="flex: 2">
+      canvas2
+      <canvas id="myCanvas2">
+      Your browser does not support the canvas element.
+      </canvas>
+    </div>
+    <div style="flex: 1">
     </div>
   </div>
 
@@ -36,9 +51,14 @@
 
   <script>
     const message = "hello!";
-    var game = new Game();
+    var model = new HostModel();
     setInterval(function() {
-        game.tick();
+        model.tick();
+    }, 1000.0 / 60)
+
+    var viewController = new ClientModel(model, "W", "S", "A", "D");
+    setInterval(function() {
+        viewController.tick();
     }, 1000.0 / 60)
 
     const canvas = document.getElementById("myCanvas");
@@ -46,11 +66,27 @@
     canvas.width = window.innerWidth / 2;
     canvas.height = window.innerHeight / 2;
 
-    setInterval(function() { game.tick(); }, 1000.0 / 60)
-    setInterval(function() { game.draw(canvas); }, 1000.0 / 60)
-    window.addEventListener('keydown', function(key) { game.keydownHandler(key); });
-    window.addEventListener('keyup', function(key) { game.keyupHandler(key); });
-    canvas.addEventListener('click', function(click) { game.clickHandler(click); });
+    setInterval(function() { viewController.draw(canvas); }, 1000.0 / 60)
+    window.addEventListener('keydown', function(key) { viewController.keydownHandler(key); });
+    window.addEventListener('keyup', function(key) { viewController.keyupHandler(key); });
+    canvas.addEventListener('click', function(click) { viewController.clickHandler(click); });
+
+    // Second player
+
+    var viewController2 = new ClientModel(model, "I", "K", "J", "L");
+    setInterval(function() {
+        viewController2.tick();
+    }, 1000.0 / 60)
+
+    const canvas2 = document.getElementById("myCanvas2");
+    // Need to set the canvas's width and height with this, to avoid stretching the canvas.
+    canvas2.width = window.innerWidth / 2;
+    canvas2.height = window.innerHeight / 2;
+
+    setInterval(function() { viewController2.draw(canvas2); }, 1000.0 / 60)
+    window.addEventListener('keydown', function(key) { viewController2.keydownHandler(key); });
+    window.addEventListener('keyup', function(key) { viewController2.keyupHandler(key); });
+    canvas2.addEventListener('click', function(click) { viewController2.clickHandler(click); });
   </script>
 
   </body>
