@@ -119,7 +119,7 @@ class BaseModel {
         } else if (gameEvent instanceof HarvestEvent) {
             delete this.poolsByComponentName.positionComponents[gameEvent.harvestableId];
             delete this.poolsByComponentName.drawableComponents[gameEvent.harvestableId];
-            delete this.poolsByComponentName.ageableComponents[gameEvent.haarvestableId];
+            delete this.poolsByComponentName.ageableComponents[gameEvent.harvestableId];
             delete this.poolsByComponentName.harvestableComponents[gameEvent.harvestableId];
             this.cornCount += 1
             this.cornSeeds += 2;
@@ -158,7 +158,7 @@ class HostModel extends BaseModel {
     /**
      * When a player connects, add them here, and also send them the game state.
      * @param {ClientModel} clientModel
-     * @returns {[string, Set<number>, number, number]}
+     * @returns {[string, string, number, number]}
      */
     connect(clientModel) {
         const playerId = this.getNextId();
@@ -181,7 +181,7 @@ class HostModel extends BaseModel {
         }
         this.connections.set(playerId, clientModel);
 
-        return [JSON.stringify(this.poolsByComponentName), this.entityIds, playerId, cameraId];
+        return [JSON.stringify(this.poolsByComponentName), JSON.stringify([...this.entityIds]), playerId, cameraId];
     }
     
     /** @param {GameEvent} gameEvent */
@@ -217,7 +217,7 @@ class ClientModel extends BaseModel {
         this.right = right;
         var data = this.model.connect(this);
         this.poolsByComponentName = JSON.parse(data[0]);
-        this.entityIds = data[1]
+        this.entityIds = new Set(JSON.parse(data[1]));
         this.playerId = data[2];
         this.cameraId = data[3];
     }
@@ -431,8 +431,9 @@ class PlantEvent extends GameEvent {
     }
 }
 
-/** @interface */
-class Component {}
+/**
+ * @typedef {Object} Component
+ */
 
 /**
  * @typedef {Object} PositionComponent
