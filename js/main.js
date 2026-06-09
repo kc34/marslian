@@ -1,4 +1,15 @@
+/**
+ * @typedef {Object} FullComponentPool
+ * @property {Object.<number, PositionComponent>} positionComponents
+ * @property {Object.<number, DrawableComponent>} drawableComponents
+ * @property {Object.<number, FollowPlayerComponent>} followPlayerComponents
+ * @property {Object.<number, AgeableComponent>} ageableComponents
+ * @property {Object.<number, HarvestableComponent>} harvestableComponents
+ */
+
 class BaseModel {
+    debugName = "ERROR";
+
     cornCount = 0;
     cornSeeds = 5;
 
@@ -6,28 +17,25 @@ class BaseModel {
     /** @type {Set<number>} */ entityIds = new Set();
 
     // component pools
-    /** @type {Map<string, Map<number, Component>>} */ poolsByComponentName = new Map();
-    /** @type {Map<number, PositionComponent>} */ positionComponents = new Map();
-    /** @type {Map<number, DrawableComponent>} */ drawableComponents = new Map();
-    /** @type {Map<number, FollowPlayerComponent>} */ followPlayerComponents = new Map();
-    /** @type {Map<number, AgeableComponent>} */ ageableComponents = new Map();
-    /** @type {Map<number, HarvestableComponent>} */ harvestableComponents = new Map();
+    /** @type {FullComponentPool} */ poolsByComponentName = {
+        positionComponents: {},
+        drawableComponents: {},
+        followPlayerComponents: {},
+        ageableComponents: {},
+        harvestableComponents: {},
+    };
 
-    constructor() {
-        // set up component pool
-        this.poolsByComponentName.set("PositionComponent", this.positionComponents);
-        this.poolsByComponentName.set("DrawableComponent", this.drawableComponents);
-        this.poolsByComponentName.set("FollowPlayerComponent", this.followPlayerComponents);
-        this.poolsByComponentName.set("AgeableComponent", this.ageableComponents);
-        this.poolsByComponentName.set("HarvestableComponent", this.harvestableComponents);
-    }
+    /** @type {GameEvent[]} */
+    events = [];
     
     getNextId() {
-        return this.entityIds.size;
+        const nextId = this.entityIds.size;
+        this.entityIds.add(nextId);
+        return nextId;
     }
 
     /**
-     * @param {string[]} componentNames
+     * @param {("positionComponents"|"drawableComponents"|"followPlayerComponents"|"ageableComponents"|"harvestableComponents")[]} componentNames
      */
     query(componentNames) {
         /** @type {Map<number, Component[]>} */
@@ -35,11 +43,11 @@ class BaseModel {
         for (const entityId of this.entityIds.keys()) {
             const components = [];
             for (const componentName of componentNames) {
-                const componentPool = this.poolsByComponentName.get(componentName);
+                const componentPool = this.poolsByComponentName[componentName];
                 if (!componentPool) {
                     break;
                 }
-                const component = componentPool.get(entityId);
+                const component = componentPool[entityId];
                 if (!component) {
                     break;
                 }
@@ -56,10 +64,10 @@ class BaseModel {
         // FollowPlayerSystem
         const entityQuery =
             /** @type {Map<number, [FollowPlayerComponent, PositionComponent]>} */
-            (this.query(["FollowPlayerComponent", "PositionComponent"]));
+            (this.query(["followPlayerComponents", "positionComponents"]));
         for (const [_, [followPlayerComponent, positionComponent]] of entityQuery) {
             const maxDistanceFromPlayer = followPlayerComponent.maxDistanceFromPlayer;
-            const playerPositionComponent = this.positionComponents.get(followPlayerComponent.followingId);
+            const playerPositionComponent = this.poolsByComponentName.positionComponents[followPlayerComponent.followingId];
             if (!playerPositionComponent) {
                 continue;
             }
@@ -82,7 +90,7 @@ class BaseModel {
         }
 
         // AgeableSystem
-        for (const ageableComponent of this.ageableComponents.values()) {
+        for (const [_, ageableComponent] of Object.entries(this.poolsByComponentName.ageableComponents)) {
             ageableComponent.age += 0.01;
         }
     }
@@ -94,21 +102,50 @@ class BaseModel {
     makeCorn(x, y) {
         const cornId = this.getNextId();
         this.entityIds.add(cornId);
-        this.positionComponents.set(cornId, {x: x, y: y});
-        this.drawableComponents.set(cornId, {color: "#ffff00"});
-        this.ageableComponents.set(cornId, {age: 0});
-        this.harvestableComponents.set(cornId, {});
+        this.poolsByComponentName.positionComponents[cornId] = {x: x, y: y};
+        this.poolsByComponentName.drawableComponents[cornId] = {color: "#ffff00"};
+        this.poolsByComponentName.ageableComponents[cornId] = {age: 0};
+        this.poolsByComponentName.harvestableComponents[cornId] = {};
     }
 
+    /** @param {GameEvent} gameEvent */
+    sendEvent(gameEvent) {
+        if (gameEvent instanceof MoveEvent) {
+            const playerPositionComponent = this.poolsByComponentName.positionComponents[gameEvent.playerId];
+            if (playerPositionComponent) {
+                playerPositionComponent.x = gameEvent.x;
+                playerPositionComponent.y = gameEvent.y;
+            }
+        } else if (gameEvent instanceof HarvestEvent) {
+            delete this.poolsByComponentName.positionComponents[gameEvent.harvestableId];
+            delete this.poolsByComponentName.drawableComponents[gameEvent.harvestableId];
+            delete this.poolsByComponentName.ageableComponents[gameEvent.haarvestableId];
+            delete this.poolsByComponentName.harvestableComponents[gameEvent.harvestableId];
+            this.cornCount += 1
+            this.cornSeeds += 2;
+        } else if (gameEvent instanceof PlantEvent) {
+            this.makeCorn(gameEvent.x, gameEvent.y);
+        } else if (gameEvent instanceof NewPlayerEvent) {
+            this.entityIds.add(gameEvent.playerId);
+            this.poolsByComponentName.positionComponents[gameEvent.playerId] = {x: gameEvent.x, y: gameEvent.y};
+            this.poolsByComponentName.drawableComponents[gameEvent.playerId] = {color: gameEvent.color, label: gameEvent.label};
+            this.entityIds.add(gameEvent.cameraId);
+            this.poolsByComponentName.positionComponents[gameEvent.cameraId] = {x: 10, y: 10};
+            this.poolsByComponentName.followPlayerComponents[gameEvent.cameraId] = {maxDistanceFromPlayer: 150, followingId: gameEvent.playerId};
+        }
+    }
 }
 
 /**
  * Game engine. Just a big-ass bag of Entities and a camera.
  */
 class HostModel extends BaseModel {
+    debugName = "HOST"
 
-    /** @type {GameEvent[]} */
-    events = [];
+    players = 0;
+
+    /** @type {Map<number, ClientModel>} */
+    connections = new Map();
 
     constructor() {
         super();
@@ -120,55 +157,47 @@ class HostModel extends BaseModel {
 
     /**
      * When a player connects, add them here, and also send them the game state.
-     * @returns {[Map<string, Map<number, Component>>, Set<number>, number, number]}
+     * @param {ClientModel} clientModel
+     * @returns {[string, Set<number>, number, number]}
      */
-    connect() {
+    connect(clientModel) {
         const playerId = this.getNextId();
-        this.entityIds.add(playerId);
-        this.positionComponents.set(playerId, {x: 10, y: 10});
-        this.drawableComponents.set(playerId, {color: "#7b00ffff", label: "Lilian <3"});
+        const x = Math.random() * 500 - 250;
+        const y = Math.random() * 500 - 250;
 
         const cameraId = this.getNextId();
-        this.entityIds.add(cameraId);
-        this.positionComponents.set(cameraId, {x: 10, y: 10})
-        this.followPlayerComponents.set(cameraId, {maxDistanceFromPlayer: 150, followingId: playerId});
 
-        return [this.poolsByComponentName, this.entityIds, playerId, cameraId];
-    }
-
-    tick() {
-        // Manage Client actions first, then run frames.
-        for (const event in this.events) {
-            if (event instanceof MoveEvent) {
-                const playerPositionComponent = this.positionComponents.get(event.playerId);
-                if (playerPositionComponent) {
-                    playerPositionComponent.x = event.x;
-                    playerPositionComponent.y = event.y;
-                }
-            } else if (event instanceof HarvestEvent) {
-                // this.positionComponents.delete(event.harvestableId);
-                // this.drawableComponents.delete(event.harvestableId);
-                // this.ageableComponents.delete(event.harvestableId);
-                // this.harvestableComponents.delete(event.harvestableId);
-                this.cornCount += 1
-                this.cornSeeds += 2;
-            } else if (event instanceof PlantEvent) {
-                // this.makeCorn(event.x, event.y);
-            }
+        var newPlayerEvent;
+        if (this.players == 0) {
+            newPlayerEvent = new NewPlayerEvent(playerId, x, y, "#7b00ffff", "Lilian <3", cameraId, 10, 10);
+            this.players += 1;
+        } else {
+            newPlayerEvent = new NewPlayerEvent(playerId, x, y, "#262fb1", "Kevin", cameraId, 10, 10);
+            this.players += 1;
         }
+        this.sendEvent(newPlayerEvent);
+        for (const connection of this.connections.values()) {
+            connection.sendEvent(newPlayerEvent);
+        }
+        this.connections.set(playerId, clientModel);
 
-        super.tick()
+        return [JSON.stringify(this.poolsByComponentName), this.entityIds, playerId, cameraId];
     }
-
-    /** @param {GameEvent[]} events */
-    addEvents(events) {
-        for (const gameEvent in events) {
-            this.events.push(gameEvent);
+    
+    /** @param {GameEvent} gameEvent */
+    sendEvent(gameEvent) {
+        super.sendEvent(gameEvent)
+        for (const playerId of this.connections.keys()) {
+            const connection = this.connections.get(playerId);
+            if (!!connection && gameEvent.playerId != playerId) {
+                connection.sendEvent(gameEvent);
+            }
         }
     }
 }
 
 class ClientModel extends BaseModel {
+    debugName = "CLIENT"
     // game state
     pressedKeys = new Set();
 
@@ -177,7 +206,7 @@ class ClientModel extends BaseModel {
     /** @type {number} */ cameraId;
 
     /**
-     * @param {Model} model 
+     * @param {HostModel} model 
      */
     constructor(model, up, down, left, right) {
         super();
@@ -186,23 +215,17 @@ class ClientModel extends BaseModel {
         this.down = down;
         this.left = left;
         this.right = right;
-        var data = this.model.connect();
-        this.poolsByComponentName = data[0];
-        this.positionComponents = this.poolsByComponentName.get("PositionComponent");
-        this.drawableComponents = this.poolsByComponentName.get("DrawableComponent");
-        this.followPlayerComponents = this.poolsByComponentName.get("FollowPlayerComponent");
-        this.ageableComponents = this.poolsByComponentName.get("AgeableComponent");
-        this.harvestableComponents = this.poolsByComponentName.get("HarvestableComponent");
+        var data = this.model.connect(this);
+        this.poolsByComponentName = JSON.parse(data[0]);
         this.entityIds = data[1]
         this.playerId = data[2];
         this.cameraId = data[3];
     }
 
     tick() {
-        // Run client frame first, then send events.
         super.tick();
 
-        const playerPositionComponent = this.positionComponents.get(this.playerId);
+        const playerPositionComponent = this.poolsByComponentName.positionComponents[this.playerId];
         if (!!playerPositionComponent && this.pressedKeys.size > 0) {
             // ControllableSystem
             if (this.pressedKeys.has(this.up)) {
@@ -217,7 +240,7 @@ class ClientModel extends BaseModel {
             if (this.pressedKeys.has(this.right)) {
                 playerPositionComponent.x += 2;
             }
-            this.model.addEvents(new MoveEvent(this.playerId, playerPositionComponent.x, playerPositionComponent.y));
+            this.model.sendEvent(new MoveEvent(this.playerId, playerPositionComponent.x, playerPositionComponent.y));
         }
     }
 
@@ -231,16 +254,16 @@ class ClientModel extends BaseModel {
 
         const entityQuery =
             /** @type {Map<number, [DrawableComponent, PositionComponent]>} */
-            (this.query(["DrawableComponent", "PositionComponent"]));
+            (this.query(["drawableComponents", "positionComponents"]));
         for (const [entityId, [drawableComponent, positionComponent]] of entityQuery) {
             if (entityId == this.cameraId) {
                 continue;
             }
-            const cameraPositionComponent = this.positionComponents.get(this.cameraId);
+            const cameraPositionComponent = this.poolsByComponentName.positionComponents[this.cameraId];
             if (!cameraPositionComponent) {
                 this.drawCircle(drawableComponent, ctx, positionComponent.x, positionComponent.y);
             } else {
-                const ageableComponent = this.ageableComponents.get(entityId);
+                const ageableComponent = this.poolsByComponentName.ageableComponents[entityId];
                 const age = !!ageableComponent ? ageableComponent.age : undefined;
                 this.drawCircle(
                     drawableComponent,
@@ -285,14 +308,11 @@ class ClientModel extends BaseModel {
         // first, try to determine where the user is clicking.
         var x;
         var y;
-        if (this.fixedCamera) {
+        const cameraPositionComponent = this.poolsByComponentName.positionComponents[this.cameraId];
+        if (!cameraPositionComponent) {
             x = clickEvent.offsetX;
             y = clickEvent.offsetY;
         } else {
-            const cameraPositionComponent = this.positionComponents.get(this.cameraId);
-            if (!cameraPositionComponent) {
-                return;
-            }
             x = clickEvent.offsetX - window.innerWidth / 4 + cameraPositionComponent.x
             y = clickEvent.offsetY - window.innerHeight / 4 + cameraPositionComponent.y
         }
@@ -300,26 +320,24 @@ class ClientModel extends BaseModel {
         // HarvestableSystem -- takes priority
         const entityQuery =
             /** @type {Map<number, [HarvestableComponent, PositionComponent, AgeableComponent]>} */
-            (this.query(["HarvestableComponent", "PositionComponent", "AgeableComponent"]));
+            (this.query(["harvestableComponents", "positionComponents", "ageableComponents"]));
         for (const [entityId, [_, positionComponent, ageableComponent]] of entityQuery) {
             if (Math.abs(x - positionComponent.x) < 25 && Math.abs(y - positionComponent.y) < 25) {
                 if (ageableComponent.age >= Math.PI * 2) {
-                    console.log("harvest registered!");
-                    console.log(entityId);
-                    this.positionComponents.delete(entityId);
-                    this.drawableComponents.delete(entityId);
-                    this.ageableComponents.delete(entityId);
-                    this.harvestableComponents.delete(entityId);
+                    delete this.poolsByComponentName.positionComponents[entityId];
+                    delete this.poolsByComponentName.drawableComponents[entityId];
+                    delete this.poolsByComponentName.ageableComponents[entityId];
+                    delete this.poolsByComponentName.harvestableComponents[entityId];
                     this.cornCount += 1
                     this.cornSeeds += 2;
-                    this.model.addEvents(new HarvestEvent(this.playerId, entityId));
+                    this.model.sendEvent(new HarvestEvent(this.playerId, entityId));
                 }
                 return;
             }
         }
         
         // Otherwise, plant.
-        const playerPositionComponent = this.positionComponents.get(this.playerId);
+        const playerPositionComponent = this.poolsByComponentName.positionComponents[this.playerId];
         if (Math.abs(x - playerPositionComponent.x) < 200 && Math.abs(y - playerPositionComponent.y) < 200) {
             if (this.cornSeeds > 0) {
                 this.cornSeeds -= 1;
@@ -342,29 +360,72 @@ class ClientModel extends BaseModel {
 }
 
 /** @interface */
-class GameEvent {}
+class GameEvent {
+    /**
+     * @param {number} playerId
+     */
+    constructor(playerId) {
+        this.playerId = playerId;
+    }
+}
 
 /** @implements {GameEvent} */
-class MoveEvent {
+class NewPlayerEvent extends GameEvent {
+    /**
+     * @param {number} playerId 
+     * @param {number} x 
+     * @param {number} y 
+     * @param {string} color
+     * @param {string} label
+     * @param {number} cameraId
+     * @param {number} cameraX
+     * @param {number} cameraY
+     */
+    constructor(playerId, x, y, color, label, cameraId, cameraX, cameraY) {
+        super(playerId);
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.label = label;
+        this.cameraId = cameraId;
+        this.cameraX = cameraX;
+        this.cameraY = cameraY;
+    }
+}
+
+/** @implements {GameEvent} */
+class MoveEvent extends GameEvent {
+    /**
+     * @param {number} playerId 
+     * @param {number} x 
+     * @param {number} y 
+     */
     constructor(playerId, x, y) {
-        this.playerId = playerId;
+        super(playerId);
         this.x = x;
         this.y = y;
     }
 }
 
-/** @implements {GameEvent} */
-class HarvestEvent {
+class HarvestEvent extends GameEvent {
+    /**
+     * @param {number} playerId 
+     * @param {number} harvestableId
+     */
     constructor(playerId, harvestableId) {
-        this.playerId = playerId;
+        super(playerId);
         this.harvestableId = harvestableId;
     }
 }
 
-/** @implements {GameEvent} */
-class PlantEvent {
+class PlantEvent extends GameEvent {
+    /**
+     * @param {number} playerId 
+     * @param {number} x 
+     * @param {number} y 
+     */
     constructor(playerId, x, y) {
-        this.playerId = playerId;
+        super(playerId);
         this.x = x;
         this.y = y;
     }
@@ -382,7 +443,7 @@ class Component {}
 /**
  * @typedef {Object} DrawableComponent
  * @property {string} color
- * @property {string|undefined} label
+ * @property {string=} label
  */
 
 /**
