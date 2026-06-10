@@ -51,9 +51,9 @@
       hostConn.on('open', () => {
         console.log("connected!");
         var remoteHost = new RemoteHost(hostConn);
-        var viewController = new ClientModel(remoteHost, "W", "S", "A", "D");
+        var localClient = new LocalClient(remoteHost, "W", "S", "A", "D");
         setInterval(function() {
-          viewController.tick();
+          localClient.tick();
         }, 1000.0 / 60)
 
         const canvas = document.getElementById("myCanvas");
@@ -61,10 +61,10 @@
         canvas.width = window.innerWidth / 2;
         canvas.height = window.innerHeight / 2;
 
-        setInterval(function() { viewController.draw(canvas); }, 1000.0 / 60)
-        window.addEventListener('keydown', function(key) { viewController.keydownHandler(key); });
-        window.addEventListener('keyup', function(key) { viewController.keyupHandler(key); });
-        canvas.addEventListener('click', function(click) { viewController.clickHandler(click); });
+        setInterval(function() { localClient.draw(canvas); }, 1000.0 / 60)
+        window.addEventListener('keydown', function(key) { localClient.keydownHandler(key); });
+        window.addEventListener('keyup', function(key) { localClient.keyupHandler(key); });
+        canvas.addEventListener('click', function(click) { localClient.clickHandler(click); });
 
         hostConn.on('data', (data) => {
           remoteHost.handleData(data);

@@ -5,11 +5,11 @@
  */
 class Host {
     /**
-     * Handles a request to connect. (Maybe should be called handleConnectionRequest?)
+     * Handles a request to connect.
      * 
      * @param {Client} client
      */
-    connect(client) {}
+    handleConnectionRequest(client) {}
 
     /**
      * Handles a GameEvent. (Maybe should be called handleGameEvent?)
@@ -31,11 +31,10 @@ class Client {
     sendEvent(gameEvent) {}
 
     /**
-     * Handles a response for connection. (Maybe should be called handleConnectionResponse?)
-     * 
+     * Handles a response for connection.
      * @param {ConnectionData} data
      */
-    connect(data) {}
+    handleConnectionResponse(data) {}
 }
 
 /**
@@ -186,7 +185,7 @@ class BaseModel {
  * 
  * @implements {Host}
  */
-class HostModel extends BaseModel {
+class LocalHost extends BaseModel {
     debugName = "HOST"
 
     players = 0;
@@ -206,7 +205,7 @@ class HostModel extends BaseModel {
      * When a player connects, add them here, and also send them the game state.
      * @param {Client} client
      */
-    connect(client) {
+    handleConnectionRequest(client) {
         const playerId = this.getNextId();
         const x = Math.random() * 500 - 250;
         const y = Math.random() * 500 - 250;
@@ -227,7 +226,7 @@ class HostModel extends BaseModel {
         }
         this.connections.set(playerId, client);
 
-        client.connect([JSON.stringify(this.poolsByComponentName), JSON.stringify([...this.entityIds]), playerId, cameraId]);
+        client.handleConnectionResponse([JSON.stringify(this.poolsByComponentName), JSON.stringify([...this.entityIds]), playerId, cameraId]);
     }
     
     /** @param {GameEvent} gameEvent */
@@ -263,7 +262,7 @@ class HostModel extends BaseModel {
  * 
  * @implements {Client}
  */
-class ClientModel extends BaseModel {
+class LocalClient extends BaseModel {
     debugName = "CLIENT"
     // game state
     pressedKeys = new Set();
@@ -273,26 +272,26 @@ class ClientModel extends BaseModel {
     /** @type {number|undefined} */ cameraId;
 
     /**
-     * @param {HostModel} model
+     * @param {Host} host
      * @param {string} up
      * @param {string} down
      * @param {string} left
      * @param {string} right
      */
-    constructor(model, up, down, left, right) {
+    constructor(host, up, down, left, right) {
         super();
-        this.model = model;
+        this.host = host;
         this.up = up;
         this.down = down;
         this.left = left;
         this.right = right;
-        var data = this.model.connect(this);
+        var data = this.host.handleConnectionRequest(this);
     }
 
     /**
      * @param {ConnectionData} data 
      */
-    connect(data) {
+    handleConnectionResponse(data) {
         this.poolsByComponentName = JSON.parse(data[0]);
         this.entityIds = new Set(JSON.parse(data[1]));
         this.playerId = data[2];
@@ -321,7 +320,7 @@ class ClientModel extends BaseModel {
             if (this.pressedKeys.has(this.right)) {
                 playerPositionComponent.x += 2;
             }
-            this.model.sendEvent({moveEvent: {playerId: this.playerId, x: playerPositionComponent.x, y: playerPositionComponent.y}});
+            this.host.sendEvent({moveEvent: {playerId: this.playerId, x: playerPositionComponent.x, y: playerPositionComponent.y}});
         }
     }
 
@@ -416,7 +415,7 @@ class ClientModel extends BaseModel {
                     delete this.poolsByComponentName.harvestableComponents[entityId];
                     this.cornCount += 1
                     this.cornSeeds += 2;
-                    this.model.sendEvent({harvestEvent: {playerId: this.playerId, harvestableId: entityId}});
+                    this.host.sendEvent({harvestEvent: {playerId: this.playerId, harvestableId: entityId}});
                 }
                 return;
             }
@@ -428,7 +427,7 @@ class ClientModel extends BaseModel {
             if (this.cornSeeds > 0) {
                 this.cornSeeds -= 1;
                 this.makeCorn(x, y);
-                this.model.sendEvent({plantEvent: {playerId: this.playerId, x: x, y: y}});
+                this.host.sendEvent({plantEvent: {playerId: this.playerId, x: x, y: y}});
             }
         }
     }
@@ -451,44 +450,56 @@ class ClientModel extends BaseModel {
  * @property {function(string): void} send
  */
 
+class BaseRemote {   
+    /**
+     * @param {Connection} connection
+     */
+    constructor(connection) {
+        this.connection = connection;
+    }
+    /**
+     * @param {GameEvent} gameEvent
+     */
+    sendEvent(gameEvent) {
+        this.connection.send(JSON.stringify({gameEvent: gameEvent}))
+    }
+}
+
 /**
  * Represents a Client running on a different process.
  * 
  * @implements {Client}
  */
-class RemoteClient {
+class RemoteClient extends BaseRemote {
     /**
-     * @param {HostModel} model 
-     * @param {Connection} incomingConn
+     * @param {Host} host
+     * @param {Connection} connection
      */
-    constructor(model, incomingConn) {
-        this.model = model;
-        this.incomingConn = incomingConn;
+    constructor(host, connection) {
+        super(connection);
+        this.host = host;
     }
 
     /**
+     * Receives ConnectionData from the Host, and forwards it to the "real" Client.
+     * 
      * @param {ConnectionData} data 
      */
-    connect(data) {
-        this.incomingConn.send(JSON.stringify(data))
+    handleConnectionResponse(data) {
+        this.connection.send(JSON.stringify(data))
     }
 
     /**
-     * @param {GameEvent} gameEvent 
-     */
-    sendEvent(gameEvent) {
-        this.incomingConn.send(JSON.stringify({gameEvent: gameEvent}));
-    }
-
-    /**
+     * Receives data from the "real" Client, and forwards it to the Host.
+     * 
      * @param {string} data should deserialize into a connectionRequest or a gameEvent.
      */
     handleData(data) {
         const parsedData = JSON.parse(data);
         if (parsedData === "connect-me") {
-            this.model.connect(this);
+            this.host.handleConnectionRequest(this);
         } else {
-            this.model.sendEvent(parsedData.gameEvent);
+            this.host.sendEvent(parsedData.gameEvent);
         }
     }
 }
@@ -498,44 +509,36 @@ class RemoteClient {
  * 
  * @implements {Host}
  */
-class RemoteHost {
+class RemoteHost extends BaseRemote {
+    /** @type {Client|undefined} */ client;
+
     /**
+     * Receives a connection request from the given Client, and forwards it to the "real" Host.
      * 
-     * @param {Connection} connection 
+     * (Also saves the Client for subsequent forwarding.)
+     * 
+     * @param {Client} client 
      */
-    constructor(connection) {
-        this.connection = connection;
-    }
-
-    /**
-     * @param {ClientModel} clientModel 
-     */
-    connect(clientModel) {
+    handleConnectionRequest(client) {
         this.connection.send(JSON.stringify("connect-me"));
-        this.clientModel = clientModel;
+        this.client = client;
     }
 
     /**
-     * @param {GameEvent} gameEvent
-     */
-    sendEvent(gameEvent) {
-        console.log("Sending over game event!");
-        this.connection.send(JSON.stringify({gameEvent: gameEvent}))
-    }
-
-    /**
+     * Receives data from the "real" Host, and forwards it to the client.
+     * 
      * @param {string} data deserializes into a connectionResponse or a gameEvent. 
      */
     handleData(data) {
-        if (!this.clientModel) {
+        if (!this.client) {
             return;
         }
         const parsedData = JSON.parse(data);
         if (!!parsedData["gameEvent"]) {
-            this.clientModel.sendEvent(parsedData.gameEvent);
+            this.client.sendEvent(parsedData.gameEvent);
         } else {
             // assume initial connection data
-            this.clientModel.connect(parsedData);
+            this.client.handleConnectionResponse(parsedData);
         }
     }
 }
