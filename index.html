@@ -5,10 +5,26 @@
   <script src=https://unpkg.com/peerjs@1.5.5/dist/peerjs.js></script>
 </head>
 <body>
-  <div>
+  <div id="menu-screen" class="full-screen">
     <h1>Lilian on Mars</h1>
+    <div id="main-menu">
+      <button id="single-player-button">
+        Singleplayer
+      </button>
+      <button id="multi-player-button">
+        Multiplayer
+      </button>
+    </div>
+    <div id="multi-player-menu" style="display: none">
+      <button id="host-button">
+        Host
+      </button>
+      or
+      <input type="text" id="remote-id-input" placeholder="Enter ID">
+      <button id="connect-button">Join</button>
+    </div>
   </div>
-  <div style="display: flex">
+  <div id="game-screen" style="display: none" class="full-screen">
     <div style="flex: 1">
       <p>Corn Count: <span id="corn-count">0</span></p>
 
@@ -21,13 +37,13 @@
       </canvas>
     </div>
     <div style="flex: 1">
-      <button id="host-button">Host?</button>
+      <button id="in-game-host-button">Host?</button>
       <span id="my-id">No ID yet...</span>
     </div>
   </div>
 
   <style>
-    html, body {
+    html, body, div.full-screen {
       width:  100%;
       height: 100%;
       margin: 0px;
@@ -35,53 +51,9 @@
     }
   </style>
 
+  <script src="js/real-main.js"></script>
+
   <script src="js/main.js"></script>
-
-  <script>
-    const message = "hello!";
-    var localHost = new LocalHost();
-    setInterval(function() {
-        localHost.tick();
-    }, 1000.0 / 60)
-
-    var localClient = new LocalClient(localHost, "W", "S", "A", "D");
-    setInterval(function() {
-        localClient.tick();
-    }, 1000.0 / 60)
-
-    const canvas = document.getElementById("myCanvas");
-    // Need to set the canvas's width and height with this, to avoid stretching the canvas.
-    canvas.width = window.innerWidth / 2;
-    canvas.height = window.innerHeight / 2;
-
-    setInterval(function() { localClient.draw(canvas); }, 1000.0 / 60)
-    window.addEventListener('keydown', function(key) { localClient.keydownHandler(key); });
-    window.addEventListener('keyup', function(key) { localClient.keyupHandler(key); });
-    canvas.addEventListener('click', function(click) { localClient.clickHandler(click); });
-
-    // networking when someone clicks on the host button
-    const hostButton = document.getElementById('host-button');
-    hostButton.addEventListener('click', function() {
-      peer = new Peer();
-
-      peer.on('open', (id) => {
-        const idSpan = document.getElementById('my-id');
-        idSpan.textContent = id;
-      })
-
-      peer.on('connection', (incomingConn) => {
-        console.log("someone connected!");
-        var remoteClient;
-        incomingConn.on('open', () => {
-          remoteClient = new RemoteClient(localHost, incomingConn);
-        })
-
-        incomingConn.on('data', (data) => {
-          remoteClient.handleData(data);
-        });
-      });
-    });
-  </script>
 
   </body>
 </html>
