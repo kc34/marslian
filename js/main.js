@@ -1,3 +1,5 @@
+/// <reference path="./component.js" />
+
 /**
  * Represents an authoritative game state.
  * 
@@ -38,18 +40,12 @@ class Client {
 }
 
 /**
- * @typedef {Object} FullComponentPool
- * @property {Object.<number, PositionComponent>} positionComponents
- * @property {Object.<number, DrawableComponent>} drawableComponents
- * @property {Object.<number, FollowPlayerComponent>} followPlayerComponents
- * @property {Object.<number, AgeableComponent>} ageableComponents
- * @property {Object.<number, HarvestableComponent>} harvestableComponents
- */
-
-/**
  * Contains common Game Engine code.
  */
 class BaseModel {
+    TIME_STEP = 1 / 60.0
+    frameCount = 0
+
     debugName = "ERROR";
 
     cornCount = 0;
@@ -59,13 +55,7 @@ class BaseModel {
     /** @type {Set<number>} */ entityIds = new Set();
 
     // component pools
-    /** @type {FullComponentPool} */ poolsByComponentName = {
-        positionComponents: {},
-        drawableComponents: {},
-        followPlayerComponents: {},
-        ageableComponents: {},
-        harvestableComponents: {},
-    };
+    /** @type {FullComponentPool} */ poolsByComponentName = FullComponentPools.newComponentPool();
 
     /** @type {GameEvent[]} */
     events = [];
@@ -77,7 +67,7 @@ class BaseModel {
     }
 
     /**
-     * @param {("positionComponents"|"drawableComponents"|"followPlayerComponents"|"ageableComponents"|"harvestableComponents")[]} componentNames
+     * @param {ComponentName[]} componentNames
      */
     query(componentNames) {
         /** @type {Map<number, Component[]>} */
@@ -103,11 +93,20 @@ class BaseModel {
     }
 
     tick() {
+        this.frameCount += 1;
+        const velocityEntityQuery =
+            /** @type {Map<number, [VelocityComponent, PositionComponent]>} */
+            (this.query(["velocityComponents", "positionComponents"]));
+        for (const [_, [velocityComponent, positionComponent]] of velocityEntityQuery) {
+            positionComponent.x += velocityComponent.x * this.TIME_STEP;
+            positionComponent.y += velocityComponent.y * this.TIME_STEP;
+        }
+
         // FollowPlayerSystem
-        const entityQuery =
+        const followPlayerEntityQuery =
             /** @type {Map<number, [FollowPlayerComponent, PositionComponent]>} */
             (this.query(["followPlayerComponents", "positionComponents"]));
-        for (const [_, [followPlayerComponent, positionComponent]] of entityQuery) {
+        for (const [_, [followPlayerComponent, positionComponent]] of followPlayerEntityQuery) {
             const maxDistanceFromPlayer = followPlayerComponent.maxDistanceFromPlayer;
             const playerPositionComponent = this.poolsByComponentName.positionComponents[followPlayerComponent.followingId];
             if (!playerPositionComponent) {
@@ -133,7 +132,7 @@ class BaseModel {
 
         // AgeableSystem
         for (const [_, ageableComponent] of Object.entries(this.poolsByComponentName.ageableComponents)) {
-            ageableComponent.age += 0.01;
+            ageableComponent.age += this.TIME_STEP;
         }
     }
 
@@ -158,11 +157,14 @@ class BaseModel {
                 playerPositionComponent.x = gameEvent.moveEvent.x;
                 playerPositionComponent.y = gameEvent.moveEvent.y;
             }
+        } else if (!!gameEvent.velocityChangeEvent) {
+            const playerPositionComponent = this.poolsByComponentName.velocityComponents[gameEvent.velocityChangeEvent.playerId];
+            if (playerPositionComponent) {
+                playerPositionComponent.x = gameEvent.velocityChangeEvent.x;
+                playerPositionComponent.y = gameEvent.velocityChangeEvent.y;
+            }
         } else if (!!gameEvent.harvestEvent) {
-            delete this.poolsByComponentName.positionComponents[gameEvent.harvestEvent.harvestableId];
-            delete this.poolsByComponentName.drawableComponents[gameEvent.harvestEvent.harvestableId];
-            delete this.poolsByComponentName.ageableComponents[gameEvent.harvestEvent.harvestableId];
-            delete this.poolsByComponentName.harvestableComponents[gameEvent.harvestEvent.harvestableId];
+            this.deleteEntity(gameEvent.harvestEvent.harvestableId);
             this.cornCount += 1
             this.cornSeeds += 2;
         } else if (!!gameEvent.plantEvent) {
@@ -170,12 +172,20 @@ class BaseModel {
         } else if (!!gameEvent.newPlayerEvent) {
             this.entityIds.add(gameEvent.newPlayerEvent.playerId);
             this.poolsByComponentName.positionComponents[gameEvent.newPlayerEvent.playerId] = {x: gameEvent.newPlayerEvent.x, y: gameEvent.newPlayerEvent.y};
+            this.poolsByComponentName.velocityComponents[gameEvent.newPlayerEvent.playerId] = {x: 0, y: 0}
             this.poolsByComponentName.drawableComponents[gameEvent.newPlayerEvent.playerId] = {color: gameEvent.newPlayerEvent.color, label: gameEvent.newPlayerEvent.label};
             this.entityIds.add(gameEvent.newPlayerEvent.cameraId);
             this.poolsByComponentName.positionComponents[gameEvent.newPlayerEvent.cameraId] = {x: 10, y: 10};
             this.poolsByComponentName.followPlayerComponents[gameEvent.newPlayerEvent.cameraId] = {maxDistanceFromPlayer: 150, followingId: gameEvent.newPlayerEvent.playerId};
         } else {
             console.log("unrecognized game event!!");
+        }
+    }
+
+    /** @param {number} entityId */
+    deleteEntity(entityId) {
+        for (const componentPool of Object.values(this.poolsByComponentName)) {
+            delete componentPool[entityId];
         }
     }
 }
@@ -199,6 +209,10 @@ class LocalHost extends BaseModel {
         this.makeCorn(Math.random() * 500 - 250, Math.random() * 500 - 250);
         this.makeCorn(Math.random() * 500 - 250, Math.random() * 500 - 250);
         this.makeCorn(Math.random() * 500 - 250, Math.random() * 500 - 250);
+    }
+
+    tick() {
+        super.tick();
     }
 
     /**
@@ -237,6 +251,8 @@ class LocalHost extends BaseModel {
             var eventPlayerId;
             if (!!gameEvent.moveEvent) {
                 eventPlayerId = gameEvent.moveEvent.playerId;
+            } else if (!!gameEvent.velocityChangeEvent) {
+                eventPlayerId = gameEvent.velocityChangeEvent;
             } else if (!!gameEvent.harvestEvent) {
                 eventPlayerId = gameEvent.harvestEvent.playerId;
             } else if (!!gameEvent.plantEvent) {
@@ -245,6 +261,7 @@ class LocalHost extends BaseModel {
                 eventPlayerId = gameEvent.newPlayerEvent.playerId;
             } else {
                 console.log("unrecognized game event!!");
+                console.log(gameEvent);
             }
             if (!!connection && eventPlayerId != playerId) {
                 connection.sendEvent(gameEvent);
@@ -305,22 +322,29 @@ class LocalClient extends BaseModel {
             return;
         }
 
-        const playerPositionComponent = this.poolsByComponentName.positionComponents[this.playerId];
-        if (!!playerPositionComponent && this.pressedKeys.size > 0) {
+        const playerVelocityComponent = this.poolsByComponentName.velocityComponents[this.playerId];
+        if (!playerVelocityComponent) {
+            console.log("player velocity component not found!");
+        } else {
+            const initialVelocity = {x: playerVelocityComponent.x, y: playerVelocityComponent.y}
             // ControllableSystem
             if (this.pressedKeys.has(this.up)) {
-                playerPositionComponent.y -= 2;
-            }
-            if (this.pressedKeys.has(this.down)) {
-                playerPositionComponent.y += 2;
+                playerVelocityComponent.y = -120;
+            } else if (this.pressedKeys.has(this.down)) {
+                playerVelocityComponent.y = 120;
+            } else {
+                playerVelocityComponent.y = 0;
             }
             if (this.pressedKeys.has(this.left)) {
-                playerPositionComponent.x -= 2;
+                playerVelocityComponent.x = -120;
+            } else if (this.pressedKeys.has(this.right)) {
+                playerVelocityComponent.x = 120;
+            } else {
+                playerVelocityComponent.x = 0;
             }
-            if (this.pressedKeys.has(this.right)) {
-                playerPositionComponent.x += 2;
+            if (initialVelocity.x != playerVelocityComponent.x || initialVelocity.y != playerVelocityComponent.y) {
+                this.host.sendEvent({velocityChangeEvent: {playerId: this.playerId, x: playerVelocityComponent.x, y: playerVelocityComponent.y}});
             }
-            this.host.sendEvent({moveEvent: {playerId: this.playerId, x: playerPositionComponent.x, y: playerPositionComponent.y}});
         }
     }
 
@@ -547,6 +571,7 @@ class RemoteHost extends BaseRemote {
  * @typedef {Object} GameEvent
  * @property {NewPlayerEvent=} newPlayerEvent
  * @property {MoveEvent=} moveEvent
+ * @property {VelocityChangeEvent=} velocityChangeEvent
  * @property {HarvestEvent=} harvestEvent
  * @property {PlantEvent=} plantEvent
  */
@@ -570,6 +595,13 @@ class RemoteHost extends BaseRemote {
  * @property {number} y
  */
 
+/**
+ * @typedef {Object} VelocityChangeEvent
+ * @property {number} playerId
+ * @property {number} x
+ * @property {number} y
+ */
+
 
 /**
  * @typedef {Object} HarvestEvent
@@ -582,35 +614,4 @@ class RemoteHost extends BaseRemote {
  * @property {number} playerId
  * @property {number} x
  * @property {number} y
- */
-
-/**
- * @typedef {Object} Component
- */
-
-/**
- * @typedef {Object} PositionComponent
- * @property {number} x
- * @property {number} y
- */
-
-/**
- * @typedef {Object} DrawableComponent
- * @property {string} color
- * @property {string=} label
- */
-
-/**
- * @typedef {Object} FollowPlayerComponent
- * @property {number} maxDistanceFromPlayer
- * @property {number} followingId
- */
-
-/**
- * @typedef {Object} AgeableComponent
- * @property {number} age
- */
-
-/**
- * @typedef {Object} HarvestableComponent
  */
