@@ -14,11 +14,11 @@ class Host {
     handleConnectionRequest(client) {}
 
     /**
-     * Handles a GameEvent. (Maybe should be called handleGameEvent?)
+     * Handles a GameEvent.
      * 
      * @param {GameEvent} gameEvent
      */
-    sendEvent(gameEvent) {}
+    handleGameEvent(gameEvent) {}
 }
 
 /**
@@ -26,11 +26,11 @@ class Host {
  */
 class Client {
     /**
-     * Handles a GameEvent. (Maybe should be called handleGameEvent?)
+     * Handles a GameEvent.
      * 
      * @param {GameEvent} gameEvent
      */
-    sendEvent(gameEvent) {}
+    handleGameEvent(gameEvent) {}
 
     /**
      * Handles a response for connection.
@@ -138,7 +138,6 @@ class BaseModel {
         }
 
         // AgeableSystem
-        console.log(this.gameState);
         for (const [_, ageableComponent] of Object.entries(this.gameState.poolsByComponentName.ageableComponents)) {
             ageableComponent.age += this.TIME_STEP;
         }
@@ -153,13 +152,25 @@ class BaseModel {
         const cornId = this.getNextId();
         this.gameState.entityIds[cornId] = true;
         this.gameState.poolsByComponentName.positionComponents[cornId] = {x: x, y: y};
-        this.gameState.poolsByComponentName.drawableComponents[cornId] = {color: "#ffff00"};
+        this.gameState.poolsByComponentName.drawableComponents[cornId] = {color: "#ffff00", shape: "CIRCLE"};
         this.gameState.poolsByComponentName.ageableComponents[cornId] = {age: 0};
         this.gameState.poolsByComponentName.harvestableComponents[cornId] = {};
     }
 
+    /**
+     * @param {number} x
+     * @param {number} y
+     */
+    makePlot(x, y) {
+        const plotId = this.getNextId();
+        this.gameState.entityIds[plotId] = true;
+        this.gameState.poolsByComponentName.positionComponents[plotId] = {x: x, y: y};
+        this.gameState.poolsByComponentName.drawableComponents[plotId] = {color: "#832a2a", shape: "SQUARE"};
+        this.gameState.poolsByComponentName.plotComponents[plotId] = {};
+    }
+
     /** @param {GameEvent} gameEvent */
-    sendEvent(gameEvent) {
+    handleGameEvent(gameEvent) {
         if (!!gameEvent.moveEvent) {
             const playerPositionComponent = this.gameState.poolsByComponentName.positionComponents[gameEvent.moveEvent.playerId];
             if (playerPositionComponent) {
@@ -182,7 +193,7 @@ class BaseModel {
             this.gameState.entityIds[gameEvent.newPlayerEvent.playerId] = true;
             this.gameState.poolsByComponentName.positionComponents[gameEvent.newPlayerEvent.playerId] = {x: gameEvent.newPlayerEvent.x, y: gameEvent.newPlayerEvent.y};
             this.gameState.poolsByComponentName.velocityComponents[gameEvent.newPlayerEvent.playerId] = {x: 0, y: 0}
-            this.gameState.poolsByComponentName.drawableComponents[gameEvent.newPlayerEvent.playerId] = {color: gameEvent.newPlayerEvent.color, label: gameEvent.newPlayerEvent.label};
+            this.gameState.poolsByComponentName.drawableComponents[gameEvent.newPlayerEvent.playerId] = {color: gameEvent.newPlayerEvent.color, label: gameEvent.newPlayerEvent.label, shape: "CIRCLE"};
             this.gameState.entityIds[gameEvent.newPlayerEvent.cameraId] = true;
             this.gameState.poolsByComponentName.positionComponents[gameEvent.newPlayerEvent.cameraId] = {x: 10, y: 10};
             this.gameState.poolsByComponentName.followPlayerComponents[gameEvent.newPlayerEvent.cameraId] = {maxDistanceFromPlayer: 150, followingId: gameEvent.newPlayerEvent.playerId};
@@ -214,10 +225,9 @@ class LocalHost extends BaseModel {
 
     constructor() {
         super();
-        this.makeCorn(Math.random() * 500 - 250, Math.random() * 500 - 250);
-        this.makeCorn(Math.random() * 500 - 250, Math.random() * 500 - 250);
-        this.makeCorn(Math.random() * 500 - 250, Math.random() * 500 - 250);
-        this.makeCorn(Math.random() * 500 - 250, Math.random() * 500 - 250);
+        for (let i = 0; i < 10; i++) {
+            this.makePlot(Math.floor(Math.random() * 10 - 5) * 50, Math.floor(Math.random() * 10 - 5) * 50);
+        }
     }
 
     tick() {
@@ -243,9 +253,9 @@ class LocalHost extends BaseModel {
             newPlayerEvent = {newPlayerEvent: {playerId: playerId, x: x, y: y, color: "#262fb1", label: "Kevin :)", cameraId: cameraId, cameraX: 10, cameraY: 10}};
             this.players += 1;
         }
-        this.sendEvent(newPlayerEvent);
+        this.handleGameEvent(newPlayerEvent);
         for (const connection of this.connections.values()) {
-            connection.sendEvent(newPlayerEvent);
+            connection.handleGameEvent(newPlayerEvent);
         }
         this.connections.set(playerId, client);
 
@@ -253,8 +263,8 @@ class LocalHost extends BaseModel {
     }
     
     /** @param {GameEvent} gameEvent */
-    sendEvent(gameEvent) {
-        super.sendEvent(gameEvent)
+    handleGameEvent(gameEvent) {
+        super.handleGameEvent(gameEvent)
         for (const playerId of this.connections.keys()) {
             const connection = this.connections.get(playerId);
             var eventPlayerId;
@@ -273,7 +283,7 @@ class LocalHost extends BaseModel {
                 console.log(gameEvent);
             }
             if (!!connection && eventPlayerId != playerId) {
-                connection.sendEvent(gameEvent);
+                connection.handleGameEvent(gameEvent);
             }
         }
     }
@@ -351,7 +361,7 @@ class LocalClient extends BaseModel {
                 playerVelocityComponent.x = 0;
             }
             if (initialVelocity.x != playerVelocityComponent.x || initialVelocity.y != playerVelocityComponent.y) {
-                this.host.sendEvent({velocityChangeEvent: {playerId: this.playerId, x: playerVelocityComponent.x, y: playerVelocityComponent.y}});
+                this.host.handleGameEvent({velocityChangeEvent: {playerId: this.playerId, x: playerVelocityComponent.x, y: playerVelocityComponent.y}});
             }
         }
     }
@@ -359,10 +369,10 @@ class LocalClient extends BaseModel {
     /** @param {HTMLCanvasElement} canvas */
     draw(canvas) {
         const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext("2d"));
-        canvas.width = window.innerWidth / 2;
-        canvas.height = window.innerHeight / 2;
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
         ctx.fillStyle = "#888888";
-		ctx.fillRect( 0 , 0 , window.innerWidth / 2, window.innerHeight / 2);
+		ctx.fillRect( 0 , 0, canvas.width, canvas.height);
 
         const entityQuery =
             /** @type {Map<number, [DrawableComponent, PositionComponent]>} */
@@ -377,12 +387,22 @@ class LocalClient extends BaseModel {
             } else {
                 const ageableComponent = this.gameState.poolsByComponentName.ageableComponents[entityId];
                 const age = !!ageableComponent ? ageableComponent.age : undefined;
-                this.drawCircle(
-                    drawableComponent,
-                    ctx,
-                    (window.innerWidth / 4) - (cameraPositionComponent.x - positionComponent.x),
-                    (window.innerHeight / 4) - (cameraPositionComponent.y - positionComponent.y),
-                    age);
+                if (drawableComponent.shape === "CIRCLE") {
+                    this.drawCircle(
+                        drawableComponent,
+                        ctx,
+                        (canvas.width / 2) - (cameraPositionComponent.x - positionComponent.x),
+                        (canvas.height / 2) - (cameraPositionComponent.y - positionComponent.y),
+                        age);
+                } else if (drawableComponent.shape === "SQUARE") {
+                    this.drawSquare(
+                        drawableComponent,
+                        ctx,
+                        (canvas.width / 2) - (cameraPositionComponent.x - positionComponent.x),
+                        (canvas.height / 2) - (cameraPositionComponent.y - positionComponent.y),
+                        age
+                    );
+                }
             }
         }
 
@@ -417,6 +437,20 @@ class LocalClient extends BaseModel {
         }
     }
 
+    drawSquare(drawableComponent, ctx, screenX, screenY, age) {
+        if (age == undefined) {
+            age = 2 * Math.PI;
+        }
+		ctx.beginPath();
+		ctx.rect(screenX - 25, screenY - 25, 50, 50);
+		ctx.fillStyle = drawableComponent.color;
+		ctx.fill();
+		ctx.font = "20px Courier New";
+        if (!!drawableComponent.label) {
+		    ctx.fillText(drawableComponent.label, screenX - 50, screenY - 30);
+        }
+    }
+
     /** @param {MouseEvent} clickEvent */
     clickHandler(clickEvent) {
         if (!this.playerId) {
@@ -430,8 +464,14 @@ class LocalClient extends BaseModel {
             x = clickEvent.offsetX;
             y = clickEvent.offsetY;
         } else {
-            x = clickEvent.offsetX - window.innerWidth / 4 + cameraPositionComponent.x
-            y = clickEvent.offsetY - window.innerHeight / 4 + cameraPositionComponent.y
+            x = clickEvent.offsetX - window.innerWidth / 2 + cameraPositionComponent.x
+            y = clickEvent.offsetY - window.innerHeight / 2 + cameraPositionComponent.y
+        }
+        
+        // Reject clicks too far away from player.
+        const playerPositionComponent = this.gameState.poolsByComponentName.positionComponents[this.playerId];
+        if (Math.abs(x - playerPositionComponent.x) > 200 || Math.abs(y - playerPositionComponent.y) > 200) {
+            return;
         }
         
         // HarvestableSystem -- takes priority
@@ -447,18 +487,24 @@ class LocalClient extends BaseModel {
                     delete this.gameState.poolsByComponentName.harvestableComponents[entityId];
                     this.gameState.cornCount += 1
                     this.gameState.cornSeeds += 2;
-                    this.host.sendEvent({harvestEvent: {playerId: this.playerId, harvestableId: entityId}});
+                    this.host.handleGameEvent({harvestEvent: {playerId: this.playerId, harvestableId: entityId}});
                 }
                 return;
             }
         }
-        
+
         // Otherwise, plant.
-        const playerPositionComponent = this.gameState.poolsByComponentName.positionComponents[this.playerId];
-        if (Math.abs(x - playerPositionComponent.x) < 200 && Math.abs(y - playerPositionComponent.y) < 200) {
-            if (this.gameState.cornSeeds > 0) {
-                this.makeCorn(x, y);
-                this.host.sendEvent({plantEvent: {playerId: this.playerId, x: x, y: y}});
+        // PlotSystem
+        const plotQuery =
+            /** @type {Map<number, [PlotComponent, PositionComponent]>} */
+            (this.query(["plotComponents", "positionComponents"]));
+        for (const [entityId, [_, positionComponent]] of plotQuery) {
+            if (Math.abs(x - positionComponent.x) < 25 && Math.abs(y - positionComponent.y) < 25) {
+                if (this.gameState.cornSeeds > 0) {
+                    this.makeCorn(positionComponent.x, positionComponent.y);
+                    this.host.handleGameEvent({plantEvent: {playerId: this.playerId, x: positionComponent.x, y: positionComponent.y}});
+                }
+                return;
             }
         }
     }
@@ -491,7 +537,7 @@ class BaseRemote {
     /**
      * @param {GameEvent} gameEvent
      */
-    sendEvent(gameEvent) {
+    handleGameEvent(gameEvent) {
         this.connection.send(JSON.stringify({gameEvent: gameEvent}))
     }
 }
@@ -530,7 +576,7 @@ class RemoteClient extends BaseRemote {
         if (parsedData === "connect-me") {
             this.host.handleConnectionRequest(this);
         } else {
-            this.host.sendEvent(parsedData.gameEvent);
+            this.host.handleGameEvent(parsedData.gameEvent);
         }
     }
 }
@@ -566,7 +612,7 @@ class RemoteHost extends BaseRemote {
         }
         const parsedData = JSON.parse(data);
         if (!!parsedData["gameEvent"]) {
-            this.client.sendEvent(parsedData.gameEvent);
+            this.client.handleGameEvent(parsedData.gameEvent);
         } else {
             // assume initial connection data
             this.client.handleConnectionResponse(parsedData);

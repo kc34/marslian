@@ -1,0 +1,5 @@
+{
+  "compilerOptions": {
+    "checkJs": true // Enable type checking in JavaScript files
+  },
+}

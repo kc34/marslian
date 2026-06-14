@@ -6,10 +6,11 @@
  * @property {Object.<number, FollowPlayerComponent>} followPlayerComponents
  * @property {Object.<number, AgeableComponent>} ageableComponents
  * @property {Object.<number, HarvestableComponent>} harvestableComponents
+ * @property {Object.<number, PlotComponent>} plotComponents
  */
 
 /**
- * @typedef {"positionComponents"|"velocityComponents"|"drawableComponents"|"followPlayerComponents"|"ageableComponents"|"harvestableComponents"} ComponentName
+ * @typedef {"positionComponents"|"velocityComponents"|"drawableComponents"|"followPlayerComponents"|"ageableComponents"|"harvestableComponents"|"plotComponents"} ComponentName
  */
 
 /**
@@ -32,6 +33,7 @@
  * @typedef {Object} DrawableComponent
  * @property {string} color
  * @property {string=} label
+ * @property {"CIRCLE"|"SQUARE"} shape
  */
 
 /**
@@ -49,6 +51,10 @@
  * @typedef {Object} HarvestableComponent
  */
 
+/**
+ * @typedef {Object} PlotComponent
+ */
+
 class FullComponentPools {
     static newComponentPool() {
         return {
@@ -58,6 +64,7 @@ class FullComponentPools {
             followPlayerComponents: {},
             ageableComponents: {},
             harvestableComponents: {},
+            plotComponents: {},
         }
     }
 }
