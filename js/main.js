@@ -151,7 +151,7 @@ class BaseModel {
         this.gameState.cornSeeds -= 1;
         const cornId = this.getNextId();
         this.gameState.entityIds[cornId] = true;
-        this.gameState.poolsByComponentName.positionComponents[cornId] = {x: x, y: y};
+        this.gameState.poolsByComponentName.positionComponents[cornId] = {x: x, y: y, size: 50};
         this.gameState.poolsByComponentName.drawableComponents[cornId] = {color: "#ffff00", shape: "CIRCLE"};
         this.gameState.poolsByComponentName.ageableComponents[cornId] = {age: 0};
         this.gameState.poolsByComponentName.harvestableComponents[cornId] = {};
@@ -164,7 +164,7 @@ class BaseModel {
     makePlot(x, y) {
         const plotId = this.getNextId();
         this.gameState.entityIds[plotId] = true;
-        this.gameState.poolsByComponentName.positionComponents[plotId] = {x: x, y: y};
+        this.gameState.poolsByComponentName.positionComponents[plotId] = {x: x, y: y, size: 50};
         this.gameState.poolsByComponentName.drawableComponents[plotId] = {color: "#832a2a", shape: "SQUARE"};
         this.gameState.poolsByComponentName.plotComponents[plotId] = {};
     }
@@ -191,11 +191,11 @@ class BaseModel {
             this.makeCorn(gameEvent.plantEvent.x, gameEvent.plantEvent.y);
         } else if (!!gameEvent.newPlayerEvent) {
             this.gameState.entityIds[gameEvent.newPlayerEvent.playerId] = true;
-            this.gameState.poolsByComponentName.positionComponents[gameEvent.newPlayerEvent.playerId] = {x: gameEvent.newPlayerEvent.x, y: gameEvent.newPlayerEvent.y};
+            this.gameState.poolsByComponentName.positionComponents[gameEvent.newPlayerEvent.playerId] = {x: gameEvent.newPlayerEvent.x, y: gameEvent.newPlayerEvent.y, size: 50};
             this.gameState.poolsByComponentName.velocityComponents[gameEvent.newPlayerEvent.playerId] = {x: 0, y: 0}
             this.gameState.poolsByComponentName.drawableComponents[gameEvent.newPlayerEvent.playerId] = {color: gameEvent.newPlayerEvent.color, label: gameEvent.newPlayerEvent.label, shape: "CIRCLE"};
             this.gameState.entityIds[gameEvent.newPlayerEvent.cameraId] = true;
-            this.gameState.poolsByComponentName.positionComponents[gameEvent.newPlayerEvent.cameraId] = {x: 10, y: 10};
+            this.gameState.poolsByComponentName.positionComponents[gameEvent.newPlayerEvent.cameraId] = {x: 10, y: 10, size: 0};
             this.gameState.poolsByComponentName.followPlayerComponents[gameEvent.newPlayerEvent.cameraId] = {maxDistanceFromPlayer: 150, followingId: gameEvent.newPlayerEvent.playerId};
         } else {
             console.log("unrecognized game event!!");
@@ -234,7 +234,7 @@ class LocalHost extends BaseModel {
                 }
                 const waterId = this.getNextId();
                 this.gameState.entityIds[waterId] = true;
-                this.gameState.poolsByComponentName.positionComponents[waterId] = {x: 50 * x, y: y * 50};
+                this.gameState.poolsByComponentName.positionComponents[waterId] = {x: 50 * x, y: y * 50, size: 50};
                 this.gameState.poolsByComponentName.drawableComponents[waterId] = {color: "#0080ff", shape: "SQUARE"};
             }
         }
@@ -247,7 +247,7 @@ class LocalHost extends BaseModel {
                 }
                 const roadId = this.getNextId();
                 this.gameState.entityIds[roadId] = true;
-                this.gameState.poolsByComponentName.positionComponents[roadId] = {x: 50 * x, y: y * 50};
+                this.gameState.poolsByComponentName.positionComponents[roadId] = {x: 50 * x, y: y * 50, size: 50};
                 this.gameState.poolsByComponentName.drawableComponents[roadId] = {color: "gray", shape: "SQUARE"};
             }
         }
@@ -257,7 +257,7 @@ class LocalHost extends BaseModel {
             for (let y = 10; y <= 12; y++) {
                 const bridgeId = this.getNextId();
                 this.gameState.entityIds[bridgeId] = true;
-                this.gameState.poolsByComponentName.positionComponents[bridgeId] = {x: 50 * x, y: y * 50};
+                this.gameState.poolsByComponentName.positionComponents[bridgeId] = {x: 50 * x, y: y * 50, size: 50};
                 this.gameState.poolsByComponentName.drawableComponents[bridgeId] = {color: "brown", shape: "SQUARE"};
             }
         }
@@ -276,7 +276,7 @@ class LocalHost extends BaseModel {
                 }
                 const wallId = this.getNextId();
                 this.gameState.entityIds[wallId] = true;
-                this.gameState.poolsByComponentName.positionComponents[wallId] = {x: 50 * x, y: y * 50};
+                this.gameState.poolsByComponentName.positionComponents[wallId] = {x: 50 * x, y: y * 50, size: 50};
                 this.gameState.poolsByComponentName.drawableComponents[wallId] = {color: "beige", shape: "SQUARE"};
             }
         }
@@ -292,6 +292,12 @@ class LocalHost extends BaseModel {
                 }
             }
         }
+
+        // city
+        const smelterId = this.getNextId();
+        this.gameState.entityIds[smelterId] = true;
+        this.gameState.poolsByComponentName.positionComponents[smelterId] = {x: 50 * 15, y: 0 * 50, size: 150};
+        this.gameState.poolsByComponentName.drawableComponents[smelterId] = {color: "beige", shape: "SQUARE", label: "Smelter"};
     }
 
     tick() {
@@ -461,7 +467,7 @@ class LocalClient extends BaseModel {
                         ctx,
                         (canvas.width / 2) - (cameraPositionComponent.x - positionComponent.x) / scale,
                         (canvas.height / 2) + (cameraPositionComponent.y - positionComponent.y) / scale,
-                        25 / scale,
+                        positionComponent.size / scale,
                         age);
                 } else if (drawableComponent.shape === "SQUARE") {
                     this.drawSquare(
@@ -469,7 +475,7 @@ class LocalClient extends BaseModel {
                         ctx,
                         (canvas.width / 2) - (cameraPositionComponent.x - positionComponent.x) / scale,
                         (canvas.height / 2) + (cameraPositionComponent.y - positionComponent.y) / scale,
-                        25 / scale,
+                        positionComponent.size / scale,
                     );
                 }
             }
@@ -499,12 +505,13 @@ class LocalClient extends BaseModel {
             agePercentage = Math.min(age, 100);
         }
 		ctx.beginPath();
-		ctx.arc(screenX, screenY, size * agePercentage / 100, 0, 2 * Math.PI);
+		ctx.arc(screenX, screenY, size / 2 * agePercentage / 100, 0, 2 * Math.PI);
 		ctx.fillStyle = drawableComponent.color;
 		ctx.fill();
 		ctx.font = "20px Courier New";
         if (!!drawableComponent.label) {
-		    ctx.fillText(drawableComponent.label, screenX - 50, screenY - 30);
+            const textWidth = ctx.measureText(drawableComponent.label);
+		    ctx.fillText(drawableComponent.label, screenX - textWidth.width / 2, screenY - size / 2 - 10);
         }
     }
 
@@ -517,12 +524,13 @@ class LocalClient extends BaseModel {
      */
     drawSquare(drawableComponent, ctx, screenX, screenY, size) {
 		ctx.beginPath();
-		ctx.rect(screenX - size, screenY - size, size * 2, size * 2);
+		ctx.rect(screenX - size / 2, screenY - size / 2, size, size);
 		ctx.fillStyle = drawableComponent.color;
 		ctx.fill();
 		ctx.font = "20px Courier New";
         if (!!drawableComponent.label) {
-		    ctx.fillText(drawableComponent.label, screenX - 50, screenY - 30);
+            const textWidth = ctx.measureText(drawableComponent.label);
+		    ctx.fillText(drawableComponent.label, screenX - textWidth.width / 2, screenY - size / 2 - 10);
         }
     }
 

@@ -21,6 +21,7 @@
  * @typedef {Object} PositionComponent
  * @property {number} x
  * @property {number} y
+ * @property {number} size
  */
 
 /**
