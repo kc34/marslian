@@ -225,8 +225,72 @@ class LocalHost extends BaseModel {
 
     constructor() {
         super();
-        for (let i = 0; i < 10; i++) {
-            this.makePlot(Math.floor(Math.random() * 10 - 5) * 50, Math.floor(Math.random() * 10 - 5) * 50);
+
+        // make a river
+        for (let x = 10; x <= 12; x++) {
+            for (let y = -25; y <= 25; y++) {
+                if (y >= 10 && y <= 12) {
+                    continue; // draw a bridge here
+                }
+                const waterId = this.getNextId();
+                this.gameState.entityIds[waterId] = true;
+                this.gameState.poolsByComponentName.positionComponents[waterId] = {x: 50 * x, y: y * 50};
+                this.gameState.poolsByComponentName.drawableComponents[waterId] = {color: "#0080ff", shape: "SQUARE"};
+            }
+        }
+
+        // make a street
+        for (let x = -25; x <= 25; x++) {
+            for (let y = 10; y <= 12; y++) {
+                if (x >= 9 && x <= 13) {
+                    continue; // draw a bridge here
+                }
+                const roadId = this.getNextId();
+                this.gameState.entityIds[roadId] = true;
+                this.gameState.poolsByComponentName.positionComponents[roadId] = {x: 50 * x, y: y * 50};
+                this.gameState.poolsByComponentName.drawableComponents[roadId] = {color: "gray", shape: "SQUARE"};
+            }
+        }
+
+        // bridge
+        for (let x = 9; x <= 13; x++) {
+            for (let y = 10; y <= 12; y++) {
+                const bridgeId = this.getNextId();
+                this.gameState.entityIds[bridgeId] = true;
+                this.gameState.poolsByComponentName.positionComponents[bridgeId] = {x: 50 * x, y: y * 50};
+                this.gameState.poolsByComponentName.drawableComponents[bridgeId] = {color: "brown", shape: "SQUARE"};
+            }
+        }
+
+
+
+        // make house walls
+        for (let x = -6; x <= 6; x++) {
+            for (let y = -4; y <= 4; y++) {
+                if (x !== -6 && x !== 6 && y !== -4 && y !== 4) {
+                    continue;
+                }
+                if (y === -4 && x >= -1 && x <= 1) {
+                    // leave a space for the door
+                    continue;
+                }
+                const wallId = this.getNextId();
+                this.gameState.entityIds[wallId] = true;
+                this.gameState.poolsByComponentName.positionComponents[wallId] = {x: 50 * x, y: y * 50};
+                this.gameState.poolsByComponentName.drawableComponents[wallId] = {color: "beige", shape: "SQUARE"};
+            }
+        }
+
+        // make 4 3x3 plots
+        for (let x = -0.5; x <= 0.5; x++) {
+            for (let y = -2.5; y <= -1.5; y++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    for (let dy = -1; dy <= 1; dy++) {
+                        this.makePlot(x * 300 + dx * 50, y * 300 + dy * 50);
+                        this.makeCorn(x * 300 + dx * 50, y * 300 + dy * 50);
+                    }
+                }
+            }
         }
     }
 
@@ -347,9 +411,9 @@ class LocalClient extends BaseModel {
             const initialVelocity = {x: playerVelocityComponent.x, y: playerVelocityComponent.y}
             // ControllableSystem
             if (this.pressedKeys.has(this.up)) {
-                playerVelocityComponent.y = -120;
-            } else if (this.pressedKeys.has(this.down)) {
                 playerVelocityComponent.y = 120;
+            } else if (this.pressedKeys.has(this.down)) {
+                playerVelocityComponent.y = -120;
             } else {
                 playerVelocityComponent.y = 0;
             }
@@ -368,10 +432,14 @@ class LocalClient extends BaseModel {
 
     /** @param {HTMLCanvasElement} canvas */
     draw(canvas) {
+        let scale = 1;
+        if (this.pressedKeys.has("M")) {
+            scale = 10;
+        }
         const ctx = /** @type {CanvasRenderingContext2D} */ (canvas.getContext("2d"));
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
-        ctx.fillStyle = "#888888";
+        ctx.fillStyle = "#886e6e";
 		ctx.fillRect( 0 , 0, canvas.width, canvas.height);
 
         const entityQuery =
@@ -383,7 +451,7 @@ class LocalClient extends BaseModel {
             }
             const cameraPositionComponent = !!this.cameraId ? this.gameState.poolsByComponentName.positionComponents[this.cameraId] : undefined;
             if (!cameraPositionComponent) {
-                this.drawCircle(drawableComponent, ctx, positionComponent.x, positionComponent.y);
+                this.drawCircle(drawableComponent, ctx, positionComponent.x, positionComponent.y, 25);
             } else {
                 const ageableComponent = this.gameState.poolsByComponentName.ageableComponents[entityId];
                 const age = !!ageableComponent ? ageableComponent.age : undefined;
@@ -391,16 +459,17 @@ class LocalClient extends BaseModel {
                     this.drawCircle(
                         drawableComponent,
                         ctx,
-                        (canvas.width / 2) - (cameraPositionComponent.x - positionComponent.x),
-                        (canvas.height / 2) - (cameraPositionComponent.y - positionComponent.y),
+                        (canvas.width / 2) - (cameraPositionComponent.x - positionComponent.x) / scale,
+                        (canvas.height / 2) + (cameraPositionComponent.y - positionComponent.y) / scale,
+                        25 / scale,
                         age);
                 } else if (drawableComponent.shape === "SQUARE") {
                     this.drawSquare(
                         drawableComponent,
                         ctx,
-                        (canvas.width / 2) - (cameraPositionComponent.x - positionComponent.x),
-                        (canvas.height / 2) - (cameraPositionComponent.y - positionComponent.y),
-                        age
+                        (canvas.width / 2) - (cameraPositionComponent.x - positionComponent.x) / scale,
+                        (canvas.height / 2) + (cameraPositionComponent.y - positionComponent.y) / scale,
+                        25 / scale,
                     );
                 }
             }
@@ -421,14 +490,16 @@ class LocalClient extends BaseModel {
      * @param {CanvasRenderingContext2D} ctx
      * @param {number} screenX
      * @param {number} screenY
-     * @param {number} [age=2 * Math.PI]
+     * @param {number} size
+     * @param {number} [age=100]
      */
-    drawCircle(drawableComponent, ctx, screenX, screenY, age) {
-        if (age == undefined) {
-            age = 2 * Math.PI;
+    drawCircle(drawableComponent, ctx, screenX, screenY, size, age) {
+        var agePercentage = 100;
+        if (age !== undefined) {
+            agePercentage = Math.min(age, 100);
         }
 		ctx.beginPath();
-		ctx.arc(screenX, screenY, 25, 0, age);
+		ctx.arc(screenX, screenY, size * agePercentage / 100, 0, 2 * Math.PI);
 		ctx.fillStyle = drawableComponent.color;
 		ctx.fill();
 		ctx.font = "20px Courier New";
@@ -437,12 +508,16 @@ class LocalClient extends BaseModel {
         }
     }
 
-    drawSquare(drawableComponent, ctx, screenX, screenY, age) {
-        if (age == undefined) {
-            age = 2 * Math.PI;
-        }
+    /**
+     * @param {DrawableComponent} drawableComponent
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {number} screenX
+     * @param {number} screenY
+     * @param {number} size
+     */
+    drawSquare(drawableComponent, ctx, screenX, screenY, size) {
 		ctx.beginPath();
-		ctx.rect(screenX - 25, screenY - 25, 50, 50);
+		ctx.rect(screenX - size, screenY - size, size * 2, size * 2);
 		ctx.fillStyle = drawableComponent.color;
 		ctx.fill();
 		ctx.font = "20px Courier New";
@@ -465,7 +540,7 @@ class LocalClient extends BaseModel {
             y = clickEvent.offsetY;
         } else {
             x = clickEvent.offsetX - window.innerWidth / 2 + cameraPositionComponent.x
-            y = clickEvent.offsetY - window.innerHeight / 2 + cameraPositionComponent.y
+            y = window.innerHeight / 2 + cameraPositionComponent.y - clickEvent.offsetY
         }
         
         // Reject clicks too far away from player.
@@ -480,7 +555,7 @@ class LocalClient extends BaseModel {
             (this.query(["harvestableComponents", "positionComponents", "ageableComponents"]));
         for (const [entityId, [_, positionComponent, ageableComponent]] of entityQuery) {
             if (Math.abs(x - positionComponent.x) < 25 && Math.abs(y - positionComponent.y) < 25) {
-                if (ageableComponent.age >= Math.PI * 2) {
+                if (ageableComponent.age >= 100) {
                     delete this.gameState.poolsByComponentName.positionComponents[entityId];
                     delete this.gameState.poolsByComponentName.drawableComponents[entityId];
                     delete this.gameState.poolsByComponentName.ageableComponents[entityId];
@@ -619,52 +694,3 @@ class RemoteHost extends BaseRemote {
         }
     }
 }
-
-/**
- * @typedef {Object} GameEvent
- * @property {NewPlayerEvent=} newPlayerEvent
- * @property {MoveEvent=} moveEvent
- * @property {VelocityChangeEvent=} velocityChangeEvent
- * @property {HarvestEvent=} harvestEvent
- * @property {PlantEvent=} plantEvent
- */
-
-/**
- * @typedef {Object} NewPlayerEvent
- * @property {number} playerId 
- * @property {number} x 
- * @property {number} y 
- * @property {string} color
- * @property {string} label
- * @property {number} cameraId
- * @property {number} cameraX
- * @property {number} cameraY
- */
-
-/**
- * @typedef {Object} MoveEvent
- * @property {number} playerId
- * @property {number} x
- * @property {number} y
- */
-
-/**
- * @typedef {Object} VelocityChangeEvent
- * @property {number} playerId
- * @property {number} x
- * @property {number} y
- */
-
-
-/**
- * @typedef {Object} HarvestEvent
- * @property {number} playerId
- * @property {number} harvestableId
- */
-
-/**
- * @typedef {Object} PlantEvent
- * @property {number} playerId
- * @property {number} x
- * @property {number} y
- */
