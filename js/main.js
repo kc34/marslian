@@ -1,7 +1,17 @@
 /// <reference path="./component.js" />
 
 /**
+ * @typedef {Object} PlayerPacket
+ * @property {string} name
+ * @property {string} color
+ */
+
+/**
  * Represents an authoritative game state.
+ * 
+ * <p>Note that since TypeScript is structurally typed, it will not catch when
+ * parameters are added into the interface functions but not the implementer
+ * functions.
  * 
  * @interface
  */
@@ -10,8 +20,9 @@ class Host {
      * Handles a request to connect.
      * 
      * @param {Client} client
+     * @param {PlayerPacket} playerPacket
      */
-    handleConnectionRequest(client) {}
+    handleConnectionRequest(client, playerPacket) {}
 
     /**
      * Handles a GameEvent.
@@ -307,8 +318,9 @@ class LocalHost extends BaseModel {
     /**
      * When a player connects, add them here, and also send them the game state.
      * @param {Client} client
+     * @param {PlayerPacket} playerPacket
      */
-    handleConnectionRequest(client) {
+    handleConnectionRequest(client, playerPacket) {
         const playerId = this.getNextId();
         const x = Math.random() * 500 - 250;
         const y = Math.random() * 500 - 250;
@@ -316,13 +328,8 @@ class LocalHost extends BaseModel {
         const cameraId = this.getNextId();
 
         var newPlayerEvent;
-        if (this.players == 0) {
-            newPlayerEvent = {newPlayerEvent: {playerId: playerId, x: x, y: y, color: "#7b00ffff", label: "Lilian <3", cameraId: cameraId, cameraX: 10, cameraY: 10}};
-            this.players += 1;
-        } else {
-            newPlayerEvent = {newPlayerEvent: {playerId: playerId, x: x, y: y, color: "#262fb1", label: "Kevin :)", cameraId: cameraId, cameraX: 10, cameraY: 10}};
-            this.players += 1;
-        }
+        newPlayerEvent = {newPlayerEvent: {playerId: playerId, x: x, y: y, color: playerPacket.color, label: playerPacket.name, cameraId: cameraId, cameraX: 10, cameraY: 10}};
+        this.players += 1;
         this.handleGameEvent(newPlayerEvent);
         for (const connection of this.connections.values()) {
             connection.handleGameEvent(newPlayerEvent);
@@ -383,15 +390,17 @@ class LocalClient extends BaseModel {
      * @param {string} down
      * @param {string} left
      * @param {string} right
+     * @param {string} name
+     * @param {string} color
      */
-    constructor(host, up, down, left, right) {
+    constructor(host, up, down, left, right, name, color) {
         super();
         this.host = host;
         this.up = up;
         this.down = down;
         this.left = left;
         this.right = right;
-        var data = this.host.handleConnectionRequest(this);
+        var data = this.host.handleConnectionRequest(this, {name: name, color: color});
     }
 
     /**
@@ -656,8 +665,8 @@ class RemoteClient extends BaseRemote {
      */
     handleData(data) {
         const parsedData = JSON.parse(data);
-        if (parsedData === "connect-me") {
-            this.host.handleConnectionRequest(this);
+        if (parsedData["playerPacket"] !== undefined) {
+            this.host.handleConnectionRequest(this, parsedData["playerPacket"]);
         } else {
             this.host.handleGameEvent(parsedData.gameEvent);
         }
@@ -677,10 +686,11 @@ class RemoteHost extends BaseRemote {
      * 
      * (Also saves the Client for subsequent forwarding.)
      * 
-     * @param {Client} client 
+     * @param {Client} client
+     * @param {PlayerPacket} playerPacket
      */
-    handleConnectionRequest(client) {
-        this.connection.send(JSON.stringify("connect-me"));
+    handleConnectionRequest(client, playerPacket) {
+        this.connection.send(JSON.stringify({playerPacket: playerPacket}));
         this.client = client;
     }
 
