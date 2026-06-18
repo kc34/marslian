@@ -1,12 +1,76 @@
 /// <reference path="./main.js" />
 
-const menuScreen = document.getElementById("menu-screen");
-const mainMenu = document.getElementById("main-menu");
-const singlePlayerButton = document.getElementById("single-player-button");
-const multiPlayerButton = document.getElementById("multi-player-button");
-
-/** @type {LocalHost} */
+/**
+ * @type {LocalHost}
+ */
 var localHost;
+
+const menuScreen =          /** @type {HTMLDivElement} */       (document.getElementById("menu-screen"));
+const mainMenu =            /** @type {HTMLDivElement} */       (document.getElementById("main-menu"));
+const usernameInput =       /** @type {HTMLInputElement} */     (document.getElementById("username-input"));
+const colorPickerInput =    /** @type {HTMLInputElement} */     (document.getElementById("color-picker-input"));
+const singlePlayerButton =  /** @type {HTMLButtonElement} */    (document.getElementById("single-player-button"));
+const multiPlayerButton =   /** @type {HTMLButtonElement} */    (document.getElementById("multi-player-button"));
+
+singlePlayerButton.addEventListener('click', () => {
+    // Swap screens
+    menuScreen.style.display = "none";
+    gameScreen.style.display = "flex";
+
+    startHost();
+    startClient(localHost);
+});
+
+multiPlayerButton.addEventListener('click', () => {
+    mainMenu.style.display = "none";
+    multiPlayerMenu.style.display = "block";
+});
+
+
+const multiPlayerMenu =     /** @type {HTMLDivElement} */       (document.getElementById("multi-player-menu"));
+const hostButton =          /** @type {HTMLButtonElement} */    (document.getElementById("host-button"));
+const remoteIdInput =       /** @type {HTMLInputElement} */     (document.getElementById("remote-id-input"));
+const connectButton =       /** @type {HTMLButtonElement} */    (document.getElementById("connect-button"));
+
+hostButton.addEventListener('click', () => {
+    menuScreen.style.display = "none";
+    gameScreen.style.display = "flex";
+
+    startHost();
+    startClient(localHost);
+    startHosting(localHost);
+})
+
+connectButton.addEventListener('click', () => {
+    const peer = /** @type {Peer} */ (new Peer());
+
+    peer.on('open', () => {
+    menuScreen.style.display = "none";
+    gameScreen.style.display = "flex";
+    
+    const hostConn = peer.connect(remoteIdInput.value.trim());
+    console.log("attempting connection: "+ remoteIdInput.value.trim());
+    hostConn.on('open', () => {
+        console.log("connected!");
+        var remoteHost = new RemoteHost(hostConn);
+        startClient(remoteHost);
+
+        hostConn.on('data', (data) => {
+            remoteHost.handleData(data);
+        });
+    })
+    });
+});
+
+const gameScreen =          /** @type {HTMLDivElement} */       (document.getElementById("game-screen"));
+const canvas =              /** @type {HTMLCanvasElement} */    (document.getElementById("myCanvas"));
+const inGameHostButton =    /** @type {HTMLButtonElement} */    (document.getElementById("in-game-host-button"));
+const idSpan =              /** @type {HTMLSpanElement} */      (document.getElementById("my-id"));
+
+inGameHostButton.addEventListener('click', () => {
+    startHosting(localHost);
+});
+
 function startHost() {
     localHost = new LocalHost();
     setInterval(function() {
@@ -16,12 +80,11 @@ function startHost() {
 
 /** @param {Host} host */
 function startClient(host) {
-    var localClient = new LocalClient(host, "W", "S", "A", "D", document.getElementById("username-input").value, document.getElementById("color-picker-input").value);
+    var localClient = new LocalClient(host, "W", "S", "A", "D", usernameInput.value, colorPickerInput.value);
     setInterval(function() {
         localClient.tick();
     }, 1000.0 / 60)
 
-    const canvas = document.getElementById("myCanvas");
     // Need to set the canvas's width and height with this, to avoid stretching the canvas.
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -34,10 +97,9 @@ function startClient(host) {
 
 /** @param {Host} host */
 function startHosting(host) {
-    const peer = new Peer();
+    const peer = /** @type {Peer} */ (new Peer());
 
     peer.on('open', (id) => {
-    const idSpan = document.getElementById('my-id');
         idSpan.textContent = id;
     })
 
@@ -54,58 +116,3 @@ function startHosting(host) {
         });
     });
 }
-
-singlePlayerButton.addEventListener('click', () => {
-    // Swap screens
-    menuScreen.style.display = "none";
-    const gameScreen = document.getElementById("game-screen");
-    gameScreen.style.display = "flex";
-
-    startHost();
-    startClient(localHost);
-});
-
-multiPlayerButton.addEventListener('click', () => {
-    mainMenu.style.display = "none";
-    const multiPlayerMenu = document.getElementById("multi-player-menu");
-    multiPlayerMenu.style.display = "block";
-
-    const hostButton = document.getElementById("host-button");
-    hostButton.addEventListener('click', () => {
-        menuScreen.style.display = "none";
-        const gameScreen = document.getElementById("game-screen");
-        gameScreen.style.display = "flex";
-
-        startHost();
-        startClient(localHost);
-        startHosting(localHost);
-    })
-});
-
-const inGameHostButton = document.getElementById("in-game-host-button");
-inGameHostButton.addEventListener('click', () => {
-    startHosting(localHost);
-});
-
-document.getElementById("connect-button").addEventListener('click', () => {
-    const peer = new Peer();
-
-    peer.on('open', () => {
-    menuScreen.style.display = "none";
-    const gameScreen = document.getElementById("game-screen");
-    gameScreen.style.display = "flex";
-    
-    const remoteIdInput = document.getElementById("remote-id-input");
-    const hostConn = peer.connect(remoteIdInput.value.trim());
-    console.log("attempting connection: "+ remoteIdInput.value.trim());
-    hostConn.on('open', () => {
-        console.log("connected!");
-        var remoteHost = new RemoteHost(hostConn);
-        startClient(remoteHost);
-
-        hostConn.on('data', (data) => {
-            remoteHost.handleData(data);
-        });
-    })
-    });
-});

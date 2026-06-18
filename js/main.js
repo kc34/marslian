@@ -1,10 +1,5 @@
 /// <reference path="./component.js" />
-
-/**
- * @typedef {Object} PlayerPacket
- * @property {string} name
- * @property {string} color
- */
+/// <reference path="./packet.js" />
 
 /**
  * Represents an authoritative game state.
@@ -17,19 +12,10 @@
  */
 class Host {
     /**
-     * Handles a request to connect.
-     * 
      * @param {Client} client
-     * @param {PlayerPacket} playerPacket
+     * @param {Packet} packet
      */
-    handleConnectionRequest(client, playerPacket) {}
-
-    /**
-     * Handles a GameEvent.
-     * 
-     * @param {GameEvent} gameEvent
-     */
-    handleGameEvent(gameEvent) {}
+    handlePacket(client, packet) {}
 }
 
 /**
@@ -37,17 +23,9 @@ class Host {
  */
 class Client {
     /**
-     * Handles a GameEvent.
-     * 
-     * @param {GameEvent} gameEvent
+     * @param {Packet} packet
      */
-    handleGameEvent(gameEvent) {}
-
-    /**
-     * Handles a response for connection.
-     * @param {ConnectionData} data
-     */
-    handleConnectionResponse(data) {}
+    handlePacket(packet) {}
 }
 
 /**
@@ -318,25 +296,36 @@ class LocalHost extends BaseModel {
     /**
      * When a player connects, add them here, and also send them the game state.
      * @param {Client} client
-     * @param {PlayerPacket} playerPacket
+     * @param {Packet} packet
      */
-    handleConnectionRequest(client, playerPacket) {
-        const playerId = this.getNextId();
-        const x = Math.random() * 500 - 250;
-        const y = Math.random() * 500 - 250;
+    handlePacket(client, packet) {
+        if (packet.playerJoinPacket) {
+            const playerJoinPacket = packet.playerJoinPacket;
+            const playerId = this.getNextId();
+            const x = Math.random() * 500 - 250;
+            const y = Math.random() * 500 - 250;
 
-        const cameraId = this.getNextId();
+            const cameraId = this.getNextId();
 
-        var newPlayerEvent;
-        newPlayerEvent = {newPlayerEvent: {playerId: playerId, x: x, y: y, color: playerPacket.color, label: playerPacket.name, cameraId: cameraId, cameraX: 10, cameraY: 10}};
-        this.players += 1;
-        this.handleGameEvent(newPlayerEvent);
-        for (const connection of this.connections.values()) {
-            connection.handleGameEvent(newPlayerEvent);
+            var newPlayerEvent;
+            newPlayerEvent = {
+                playerId: playerId, x: x, y: y, color: playerJoinPacket.color, label: playerJoinPacket.name, cameraId: cameraId, cameraX: 10, cameraY: 10
+            };
+            this.players += 1;
+            this.handleGameEvent({newPlayerEvent});
+            for (const connection of this.connections.values()) {
+                connection.handlePacket({gameEvent: {newPlayerEvent}});
+            }
+            this.connections.set(playerId, client);
+
+            client.handlePacket({
+                playerJoinSuccessPacket: {
+                    gameState: JSON.parse(JSON.stringify(this.gameState)),
+                    playerId: playerId,
+                    cameraId: cameraId,
+                }
+            })
         }
-        this.connections.set(playerId, client);
-
-        client.handleConnectionResponse([JSON.stringify(this.gameState), playerId, cameraId]);
     }
     
     /** @param {GameEvent} gameEvent */
@@ -360,15 +349,11 @@ class LocalHost extends BaseModel {
                 console.log(gameEvent);
             }
             if (!!connection && eventPlayerId != playerId) {
-                connection.handleGameEvent(gameEvent);
+                connection.handlePacket({gameEvent: gameEvent});
             }
         }
     }
 }
-
-/**
- * @typedef {[string, number, number]} ConnectionData
- */
 
 /**
  * Client running on this process.
@@ -400,16 +385,18 @@ class LocalClient extends BaseModel {
         this.down = down;
         this.left = left;
         this.right = right;
-        var data = this.host.handleConnectionRequest(this, {name: name, color: color});
+        var data = this.host.handlePacket(this, {playerJoinPacket: {name: name, color: color}});
     }
 
     /**
-     * @param {ConnectionData} data 
+     * @param {Packet} packet
      */
-    handleConnectionResponse(data) {
-        this.gameState = JSON.parse(data[0]);
-        this.playerId = data[1];
-        this.cameraId = data[2];
+    handlePacket(packet) {
+        if (packet.playerJoinSuccessPacket) {
+            this.gameState = packet.playerJoinSuccessPacket.gameState;
+            this.playerId = packet.playerJoinSuccessPacket.playerId;
+            this.cameraId = packet.playerJoinSuccessPacket.cameraId;
+        }
     }
 
     tick() {
@@ -440,7 +427,7 @@ class LocalClient extends BaseModel {
                 playerVelocityComponent.x = 0;
             }
             if (initialVelocity.x != playerVelocityComponent.x || initialVelocity.y != playerVelocityComponent.y) {
-                this.host.handleGameEvent({velocityChangeEvent: {playerId: this.playerId, x: playerVelocityComponent.x, y: playerVelocityComponent.y}});
+                this.host.handlePacket(this, {gameEvent: {velocityChangeEvent: {playerId: this.playerId, x: playerVelocityComponent.x, y: playerVelocityComponent.y}}});
             }
         }
     }
@@ -579,7 +566,7 @@ class LocalClient extends BaseModel {
                     delete this.gameState.poolsByComponentName.harvestableComponents[entityId];
                     this.gameState.cornCount += 1
                     this.gameState.cornSeeds += 2;
-                    this.host.handleGameEvent({harvestEvent: {playerId: this.playerId, harvestableId: entityId}});
+                    this.host.handlePacket(this, {gameEvent: {harvestEvent: {playerId: this.playerId, harvestableId: entityId}}});
                 }
                 return;
             }
@@ -594,7 +581,7 @@ class LocalClient extends BaseModel {
             if (Math.abs(x - positionComponent.x) < 25 && Math.abs(y - positionComponent.y) < 25) {
                 if (this.gameState.cornSeeds > 0) {
                     this.makeCorn(positionComponent.x, positionComponent.y);
-                    this.host.handleGameEvent({plantEvent: {playerId: this.playerId, x: positionComponent.x, y: positionComponent.y}});
+                    this.host.handlePacket(this, {gameEvent: {plantEvent: {playerId: this.playerId, x: positionComponent.x, y: positionComponent.y}}});
                 }
                 return;
             }
@@ -615,47 +602,27 @@ class LocalClient extends BaseModel {
 }
 
 /**
- * @typedef {Object} Connection
- * @property {function(string): void} send
- */
-
-class BaseRemote {   
-    /**
-     * @param {Connection} connection
-     */
-    constructor(connection) {
-        this.connection = connection;
-    }
-    /**
-     * @param {GameEvent} gameEvent
-     */
-    handleGameEvent(gameEvent) {
-        this.connection.send(JSON.stringify({gameEvent: gameEvent}))
-    }
-}
-
-/**
  * Represents a Client running on a different process.
  * 
  * @implements {Client}
  */
-class RemoteClient extends BaseRemote {
+class RemoteClient {
     /**
      * @param {Host} host
      * @param {Connection} connection
      */
     constructor(host, connection) {
-        super(connection);
         this.host = host;
+        this.connection = connection;
     }
 
     /**
-     * Receives ConnectionData from the Host, and forwards it to the "real" Client.
+     * Receives a Packet from the Host, and forwards it to the "real" Client.
      * 
-     * @param {ConnectionData} data 
+     * @param {Packet} packet 
      */
-    handleConnectionResponse(data) {
-        this.connection.send(JSON.stringify(data))
+    handlePacket(packet) {
+        this.connection.send(JSON.stringify(packet))
     }
 
     /**
@@ -664,12 +631,7 @@ class RemoteClient extends BaseRemote {
      * @param {string} data should deserialize into a connectionRequest or a gameEvent.
      */
     handleData(data) {
-        const parsedData = JSON.parse(data);
-        if (parsedData["playerPacket"] !== undefined) {
-            this.host.handleConnectionRequest(this, parsedData["playerPacket"]);
-        } else {
-            this.host.handleGameEvent(parsedData.gameEvent);
-        }
+        this.host.handlePacket(this, JSON.parse(data));
     }
 }
 
@@ -678,8 +640,15 @@ class RemoteClient extends BaseRemote {
  * 
  * @implements {Host}
  */
-class RemoteHost extends BaseRemote {
+class RemoteHost {
     /** @type {Client|undefined} */ client;
+
+    /**
+     * @param {Connection} connection 
+     */
+    constructor(connection) {
+        this.connection = connection;
+    }
 
     /**
      * Receives a connection request from the given Client, and forwards it to the "real" Host.
@@ -687,10 +656,10 @@ class RemoteHost extends BaseRemote {
      * (Also saves the Client for subsequent forwarding.)
      * 
      * @param {Client} client
-     * @param {PlayerPacket} playerPacket
+     * @param {Packet} packet
      */
-    handleConnectionRequest(client, playerPacket) {
-        this.connection.send(JSON.stringify({playerPacket: playerPacket}));
+    handlePacket(client, packet) {
+        this.connection.send(JSON.stringify(packet));
         this.client = client;
     }
 
@@ -703,12 +672,6 @@ class RemoteHost extends BaseRemote {
         if (!this.client) {
             return;
         }
-        const parsedData = JSON.parse(data);
-        if (!!parsedData["gameEvent"]) {
-            this.client.handleGameEvent(parsedData.gameEvent);
-        } else {
-            // assume initial connection data
-            this.client.handleConnectionResponse(parsedData);
-        }
+        this.client.handlePacket(JSON.parse(data));
     }
 }
