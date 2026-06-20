@@ -35,6 +35,7 @@ class Client {
  * @property {Object<number, boolean>} entityIds
  * @property {number} cornCount
  * @property {number} cornSeeds
+ * @property {Object<number, Array<number>>} playerInventories
  */
 
 /**
@@ -48,6 +49,7 @@ class BaseModel {
         entityIds: {},
         cornCount: 5,
         cornSeeds: 5,
+        playerInventories: {},
     }
     TIME_STEP = 1 / 60.0
 
@@ -186,6 +188,20 @@ class BaseModel {
             this.gameState.entityIds[gameEvent.newPlayerEvent.cameraId] = true;
             this.gameState.poolsByComponentName.positionComponents[gameEvent.newPlayerEvent.cameraId] = {x: 10, y: 10, size: 0};
             this.gameState.poolsByComponentName.followPlayerComponents[gameEvent.newPlayerEvent.cameraId] = {maxDistanceFromPlayer: 150, followingId: gameEvent.newPlayerEvent.playerId};
+        } else if (!!gameEvent.collectEvent) {
+            console.log("collecting");
+            console.log(gameEvent.collectEvent);
+            // remove entity from world, and put in player inventory
+            delete this.gameState.poolsByComponentName.positionComponents[gameEvent.collectEvent.itemId];
+            if (!this.gameState.playerInventories[gameEvent.collectEvent.playerId]) {
+                this.gameState.playerInventories[gameEvent.collectEvent.playerId] = [];
+            }
+            this.gameState.playerInventories[gameEvent.collectEvent.playerId].push(gameEvent.collectEvent.itemId);
+            console.log(this.gameState.playerInventories[gameEvent.collectEvent.playerId]);
+        } else if (!!gameEvent.buildEvent) {
+            // delete from player inventory, and put into world
+            this.gameState.playerInventories[gameEvent.buildEvent.playerId].splice(this.gameState.playerInventories[gameEvent.buildEvent.playerId].indexOf(gameEvent.buildEvent.itemId), 1);
+            this.gameState.poolsByComponentName.positionComponents[gameEvent.buildEvent.itemId] = {x: gameEvent.buildEvent.x, y: gameEvent.buildEvent.y, size: 50};
         } else {
             console.log("unrecognized game event!!");
         }
@@ -533,7 +549,11 @@ class LocalClient extends BaseModel {
         }
     }
 
-    /** @param {MouseEvent} clickEvent */
+    /**
+     * Handles when a player left-clicks (i.e. places inventory item, or interacts with entity.)
+     * 
+     * @param {MouseEvent} clickEvent
+     */
     clickHandler(clickEvent) {
         if (!this.playerId) {
             return;
@@ -557,21 +577,36 @@ class LocalClient extends BaseModel {
         }
         
         // HarvestableSystem -- takes priority
+        // const entityQuery =
+        //     /** @type {Map<number, [HarvestableComponent, PositionComponent, AgeableComponent]>} */
+        //     (this.query(["harvestableComponents", "positionComponents", "ageableComponents"]));
+        // for (const [entityId, [_, positionComponent, ageableComponent]] of entityQuery) {
+        //     if (Math.abs(x - positionComponent.x) < 25 && Math.abs(y - positionComponent.y) < 25) {
+        //         if (ageableComponent.age >= 10) {
+        //             console.log("Sending packet!");
+        //             this.host.handlePacket(this, {gameEvent: {harvestEvent: {playerId: this.playerId, harvestableId: entityId}}});
+        //         }
+        //         return;
+        //     }
+        // }
+
         const entityQuery =
-            /** @type {Map<number, [HarvestableComponent, PositionComponent, AgeableComponent]>} */
-            (this.query(["harvestableComponents", "positionComponents", "ageableComponents"]));
-        for (const [entityId, [_, positionComponent, ageableComponent]] of entityQuery) {
+            /** @type {Map<number, [PositionComponent]>} */
+            (this.query(["positionComponents"]));
+        for (const [entityId, [positionComponent]] of entityQuery) {
             if (Math.abs(x - positionComponent.x) < 25 && Math.abs(y - positionComponent.y) < 25) {
-                if (ageableComponent.age >= 10) {
-                    console.log("Sending packet!");
-                    this.host.handlePacket(this, {gameEvent: {harvestEvent: {playerId: this.playerId, harvestableId: entityId}}});
-                }
+                console.log("collecting!");
+                this.host.handlePacket(this, {gameEvent: {collectEvent: {playerId: this.playerId, itemId: entityId}}});
                 return;
             }
         }
     }
 
-    /** @param {MouseEvent} clickEvent */
+    /**
+     * Handles when a player right-clicks (i.e. places something).
+     *
+     * @param {MouseEvent} clickEvent
+     */
     auxClickHandler(clickEvent) {
         console.log("aux click!");
         if (!this.playerId) {
@@ -617,6 +652,12 @@ class LocalClient extends BaseModel {
                 }
                 return;
             }
+        }
+
+        const playerInventory = this.gameState.playerInventories[this.playerId];
+        const itemId = playerInventory[0];
+        if (itemId) {
+            this.host.handlePacket(this, {gameEvent: {buildEvent: {playerId: this.playerId, itemId: itemId, x: x, y: y}}});
         }
     }
 

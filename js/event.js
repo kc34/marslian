@@ -6,6 +6,8 @@
  * @property {VelocityChangeEvent=} velocityChangeEvent
  * @property {HarvestEvent=} harvestEvent
  * @property {PlantEvent=} plantEvent
+ * @property {CollectEvent=} collectEvent
+ * @property {BuildEvent=} buildEvent
  */
 
 /**
@@ -44,6 +46,20 @@
 /**
  * @typedef {Object} PlantEvent
  * @property {number} playerId
+ * @property {number} x
+ * @property {number} y
+ */
+
+/**
+ * @typedef {Object} CollectEvent
+ * @property {number} playerId
+ * @property {number} itemId
+ */
+
+/**
+ * @typedef {Object} BuildEvent
+ * @property {number} playerId
+ * @property {number} itemId
  * @property {number} x
  * @property {number} y
  */
