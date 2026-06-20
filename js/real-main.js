@@ -93,6 +93,10 @@ function startClient(host) {
     window.addEventListener('keydown', function(key) { localClient.keydownHandler(key); });
     window.addEventListener('keyup', function(key) { localClient.keyupHandler(key); });
     canvas.addEventListener('click', function(click) { localClient.clickHandler(click); });
+    
+    // disable right-click menu, and replace with auxclick.
+    canvas.addEventListener('contextmenu', (event) => { event.preventDefault(); });
+    canvas.addEventListener('auxclick', function(click) { localClient.auxClickHandler(click); });
 }
 
 /** @param {Host} host */

@@ -38,7 +38,7 @@ class Client {
  */
 
 /**
- * Contains common Game Engine code.
+ * Contains core game logic, which is essentially holding game state and handling game events.
  */
 class BaseModel {
     /** @type {GameState} */
@@ -137,7 +137,6 @@ class BaseModel {
      * @param {number} y
      */
     makeCorn(x, y) {
-        this.gameState.cornSeeds -= 1;
         const cornId = this.getNextId();
         this.gameState.entityIds[cornId] = true;
         this.gameState.poolsByComponentName.positionComponents[cornId] = {x: x, y: y, size: 50};
@@ -177,6 +176,7 @@ class BaseModel {
             this.gameState.cornCount += 1
             this.gameState.cornSeeds += 2;
         } else if (!!gameEvent.plantEvent) {
+            this.gameState.cornSeeds -= 1;
             this.makeCorn(gameEvent.plantEvent.x, gameEvent.plantEvent.y);
         } else if (!!gameEvent.newPlayerEvent) {
             this.gameState.entityIds[gameEvent.newPlayerEvent.playerId] = true;
@@ -302,8 +302,8 @@ class LocalHost extends BaseModel {
         if (packet.playerJoinPacket) {
             const playerJoinPacket = packet.playerJoinPacket;
             const playerId = this.getNextId();
-            const x = Math.random() * 500 - 250;
-            const y = Math.random() * 500 - 250;
+            const x = Math.random() * 250 - 125;
+            const y = Math.random() * 250 - 125;
 
             const cameraId = this.getNextId();
 
@@ -313,9 +313,6 @@ class LocalHost extends BaseModel {
             };
             this.players += 1;
             this.handleGameEvent({newPlayerEvent});
-            for (const connection of this.connections.values()) {
-                connection.handlePacket({gameEvent: {newPlayerEvent}});
-            }
             this.connections.set(playerId, client);
 
             client.handlePacket({
@@ -325,29 +322,33 @@ class LocalHost extends BaseModel {
                     cameraId: cameraId,
                 }
             })
+        } else if (packet.gameEvent) {
+            this.handleGameEvent(packet.gameEvent);
         }
     }
     
-    /** @param {GameEvent} gameEvent */
+    /**
+     * Runs BaseModel.handleGameEvent, then re-broadcasts to everyone, except the sender sometimes.
+     * 
+     * @param {GameEvent} gameEvent
+     */
     handleGameEvent(gameEvent) {
         super.handleGameEvent(gameEvent)
+
+        var eventPlayerId;
+        if (!!gameEvent.moveEvent) {
+            // Client does client-side movement prediction.
+            eventPlayerId = gameEvent.moveEvent.playerId;
+        } else if (!!gameEvent.velocityChangeEvent) {
+            // Client does client-side movement prediction.
+            eventPlayerId = gameEvent.velocityChangeEvent;
+        } else if (!!gameEvent.newPlayerEvent) {
+            // Client will know about itself after getting the player join success packet
+            eventPlayerId = gameEvent.newPlayerEvent.playerId;
+        }
+
         for (const playerId of this.connections.keys()) {
             const connection = this.connections.get(playerId);
-            var eventPlayerId;
-            if (!!gameEvent.moveEvent) {
-                eventPlayerId = gameEvent.moveEvent.playerId;
-            } else if (!!gameEvent.velocityChangeEvent) {
-                eventPlayerId = gameEvent.velocityChangeEvent;
-            } else if (!!gameEvent.harvestEvent) {
-                eventPlayerId = gameEvent.harvestEvent.playerId;
-            } else if (!!gameEvent.plantEvent) {
-                eventPlayerId = gameEvent.plantEvent.playerId;
-            } else if (!!gameEvent.newPlayerEvent) {
-                eventPlayerId = gameEvent.newPlayerEvent.playerId;
-            } else {
-                console.log("unrecognized game event!!");
-                console.log(gameEvent);
-            }
             if (!!connection && eventPlayerId != playerId) {
                 connection.handlePacket({gameEvent: gameEvent});
             }
@@ -396,6 +397,8 @@ class LocalClient extends BaseModel {
             this.gameState = packet.playerJoinSuccessPacket.gameState;
             this.playerId = packet.playerJoinSuccessPacket.playerId;
             this.cameraId = packet.playerJoinSuccessPacket.cameraId;
+        } else if (packet.gameEvent) {
+            this.handleGameEvent(packet.gameEvent);
         }
     }
 
@@ -498,7 +501,7 @@ class LocalClient extends BaseModel {
     drawCircle(drawableComponent, ctx, screenX, screenY, size, age) {
         var agePercentage = 100;
         if (age !== undefined) {
-            agePercentage = Math.min(age, 100);
+            agePercentage = Math.min(age * 10, 100);
         }
 		ctx.beginPath();
 		ctx.arc(screenX, screenY, size / 2 * agePercentage / 100, 0, 2 * Math.PI);
@@ -559,15 +562,45 @@ class LocalClient extends BaseModel {
             (this.query(["harvestableComponents", "positionComponents", "ageableComponents"]));
         for (const [entityId, [_, positionComponent, ageableComponent]] of entityQuery) {
             if (Math.abs(x - positionComponent.x) < 25 && Math.abs(y - positionComponent.y) < 25) {
-                if (ageableComponent.age >= 100) {
-                    delete this.gameState.poolsByComponentName.positionComponents[entityId];
-                    delete this.gameState.poolsByComponentName.drawableComponents[entityId];
-                    delete this.gameState.poolsByComponentName.ageableComponents[entityId];
-                    delete this.gameState.poolsByComponentName.harvestableComponents[entityId];
-                    this.gameState.cornCount += 1
-                    this.gameState.cornSeeds += 2;
+                if (ageableComponent.age >= 10) {
+                    console.log("Sending packet!");
                     this.host.handlePacket(this, {gameEvent: {harvestEvent: {playerId: this.playerId, harvestableId: entityId}}});
                 }
+                return;
+            }
+        }
+    }
+
+    /** @param {MouseEvent} clickEvent */
+    auxClickHandler(clickEvent) {
+        console.log("aux click!");
+        if (!this.playerId) {
+            return;
+        }
+        // first, try to determine where the user is clicking.
+        var x;
+        var y;
+        const cameraPositionComponent = this.cameraId ? this.gameState.poolsByComponentName.positionComponents[this.cameraId] : undefined;
+        if (!cameraPositionComponent) {
+            x = clickEvent.offsetX;
+            y = clickEvent.offsetY;
+        } else {
+            x = clickEvent.offsetX - window.innerWidth / 2 + cameraPositionComponent.x
+            y = window.innerHeight / 2 + cameraPositionComponent.y - clickEvent.offsetY
+        }
+        
+        // Reject clicks too far away from player.
+        const playerPositionComponent = this.gameState.poolsByComponentName.positionComponents[this.playerId];
+        if (Math.abs(x - playerPositionComponent.x) > 200 || Math.abs(y - playerPositionComponent.y) > 200) {
+            return;
+        }
+        
+        // Reject anything already harvestable
+        const entityQuery =
+            /** @type {Map<number, [HarvestableComponent, PositionComponent]>} */
+            (this.query(["harvestableComponents", "positionComponents"]));
+        for (const [entityId, [_, positionComponent]] of entityQuery) {
+            if (Math.abs(x - positionComponent.x) < 25 && Math.abs(y - positionComponent.y) < 25) {
                 return;
             }
         }
@@ -580,7 +613,6 @@ class LocalClient extends BaseModel {
         for (const [entityId, [_, positionComponent]] of plotQuery) {
             if (Math.abs(x - positionComponent.x) < 25 && Math.abs(y - positionComponent.y) < 25) {
                 if (this.gameState.cornSeeds > 0) {
-                    this.makeCorn(positionComponent.x, positionComponent.y);
                     this.host.handlePacket(this, {gameEvent: {plantEvent: {playerId: this.playerId, x: positionComponent.x, y: positionComponent.y}}});
                 }
                 return;
