@@ -137,12 +137,13 @@ class BaseModel {
     /**
      * @param {number} x
      * @param {number} y
+     * @param {number} [size=50]
      */
-    makePlot(x, y) {
+    makePlot(x, y, size = 50) {
         const plotId = this.getNextId();
         this.gameState.entityIds[plotId] = true;
         this.gameState.poolsByComponentName.positionComponents[plotId] = {x: x, y: y};
-        this.gameState.poolsByComponentName.sizeComponents[plotId] = {size: 50};
+        this.gameState.poolsByComponentName.sizeComponents[plotId] = {size: size};
         this.gameState.poolsByComponentName.drawableComponents[plotId] = {color: "#832a2a", shape: "SQUARE"};
         this.gameState.poolsByComponentName.plotComponents[plotId] = {age: 0};
     }
@@ -168,12 +169,16 @@ class BaseModel {
             this.gameState.poolsByComponentName.velocityComponents[gameEvent.newPlayerEvent.playerId] = {x: 0, y: 0}
             this.gameState.poolsByComponentName.drawableComponents[gameEvent.newPlayerEvent.playerId] = {color: gameEvent.newPlayerEvent.color, label: gameEvent.newPlayerEvent.label, shape: "CIRCLE"};
             this.gameState.entityIds[gameEvent.newPlayerEvent.cameraId] = true;
-            this.gameState.poolsByComponentName.positionComponents[gameEvent.newPlayerEvent.cameraId] = {x: 10, y: 10};
+            this.gameState.poolsByComponentName.positionComponents[gameEvent.newPlayerEvent.cameraId] = {x: gameEvent.newPlayerEvent.cameraX, y: gameEvent.newPlayerEvent.cameraY};
             this.gameState.poolsByComponentName.followPlayerComponents[gameEvent.newPlayerEvent.cameraId] = {maxDistanceFromPlayer: 150, followingId: gameEvent.newPlayerEvent.playerId};
         } else if (!!gameEvent.useEvent) {
-            if (this.gameState.poolsByComponentName.plotComponents[gameEvent.useEvent.targetId]) {
-                this.gameState.cornCount += 1;
-                this.gameState.poolsByComponentName.plotComponents[gameEvent.useEvent.targetId].age = 0;
+            const targetId = gameEvent.useEvent.targetId;
+            if (this.gameState.poolsByComponentName.plotComponents[targetId]) {
+                const plotComponent = this.gameState.poolsByComponentName.plotComponents[targetId];
+                if (plotComponent.age > 10) {
+                    this.gameState.cornCount += 1;
+                    this.gameState.poolsByComponentName.plotComponents[targetId].age = 0;
+                }
             }
         } else if (!!gameEvent.collectEvent) {
             console.log("collecting");
@@ -219,9 +224,9 @@ class LocalHost extends BaseModel {
         super();
 
         // make a river
-        for (let x = 10; x <= 12; x++) {
+        for (let x = -1; x <= 1; x++) {
             for (let y = -25; y <= 25; y++) {
-                if (y >= 10 && y <= 12) {
+                if (y >= -1 && y <= 1) {
                     continue; // draw a bridge here
                 }
                 const waterId = this.getNextId();
@@ -234,8 +239,8 @@ class LocalHost extends BaseModel {
 
         // make a street
         for (let x = -25; x <= 25; x++) {
-            for (let y = 10; y <= 12; y++) {
-                if (x >= 9 && x <= 13) {
+            for (let y = -1; y <= 1; y++) {
+                if (x >= -1 && x <= -1) {
                     continue; // draw a bridge here
                 }
                 const roadId = this.getNextId();
@@ -247,8 +252,8 @@ class LocalHost extends BaseModel {
         }
 
         // bridge
-        for (let x = 9; x <= 13; x++) {
-            for (let y = 10; y <= 12; y++) {
+        for (let x = -2; x <= 2; x++) {
+            for (let y = -1; y <= 1; y++) {
                 const bridgeId = this.getNextId();
                 this.gameState.entityIds[bridgeId] = true;
                 this.gameState.poolsByComponentName.positionComponents[bridgeId] = {x: 50 * x, y: y * 50};
@@ -257,15 +262,13 @@ class LocalHost extends BaseModel {
             }
         }
 
-
-
         // make house walls
-        for (let x = -6; x <= 6; x++) {
-            for (let y = -4; y <= 4; y++) {
-                if (x !== -6 && x !== 6 && y !== -4 && y !== 4) {
+        for (let x = -16; x <= -4; x++) {
+            for (let y = -14; y <= -6; y++) {
+                if (x !== -16 && x !== -4 && y !== -14 && y !== -6) {
                     continue;
                 }
-                if (y === -4 && x >= -1 && x <= 1) {
+                if (y === -14 && x >= -11 && x <= -9) {
                     // leave a space for the door
                     continue;
                 }
@@ -278,22 +281,21 @@ class LocalHost extends BaseModel {
         }
 
         // make 4 3x3 plots
-        for (let x = -0.5; x <= 0.5; x++) {
-            for (let y = -2.5; y <= -1.5; y++) {
-                for (let dx = -1; dx <= 1; dx++) {
-                    for (let dy = -1; dy <= 1; dy++) {
-                        this.makePlot(x * 300 + dx * 50, y * 300 + dy * 50);
-                    }
-                }
+        for (let x = -16; x <= -4; x++) {
+            for (let y = -18; y >= -22; y -= 2) {
+                this.makePlot(x * 50, y * 50);
             }
         }
 
         // city
-        const smelterId = this.getNextId();
-        this.gameState.entityIds[smelterId] = true;
-        this.gameState.poolsByComponentName.positionComponents[smelterId] = {x: 50 * 15, y: 0 * 50};
-        this.gameState.poolsByComponentName.sizeComponents[smelterId] = {size: 150};
-        this.gameState.poolsByComponentName.drawableComponents[smelterId] = {color: "beige", shape: "SQUARE", label: "Smelter"};
+        const kitchenId = this.getNextId();
+        this.gameState.entityIds[kitchenId] = true;
+        this.gameState.poolsByComponentName.positionComponents[kitchenId] = {x: 50 * 15, y: 0 * 50};
+        this.gameState.poolsByComponentName.sizeComponents[kitchenId] = {size: 150};
+        this.gameState.poolsByComponentName.drawableComponents[kitchenId] = {color: "beige", shape: "SQUARE", label: "Kitchen"};
+
+        // wilderness
+        this.makePlot(-150, 150, 150);
     }
 
     tick() {
@@ -309,14 +311,14 @@ class LocalHost extends BaseModel {
         if (packet.playerJoinPacket) {
             const playerJoinPacket = packet.playerJoinPacket;
             const playerId = this.getNextId();
-            const x = Math.random() * 250 - 125;
-            const y = Math.random() * 250 - 125;
+            const x = Math.random() * 250 - 125 - 500;
+            const y = Math.random() * 250 - 125 - 500;
 
             const cameraId = this.getNextId();
 
             var newPlayerEvent;
             newPlayerEvent = {
-                playerId: playerId, x: x, y: y, color: playerJoinPacket.color, label: playerJoinPacket.name, cameraId: cameraId, cameraX: 10, cameraY: 10
+                playerId: playerId, x: x, y: y, color: playerJoinPacket.color, label: playerJoinPacket.name, cameraId: cameraId, cameraX: x, cameraY: y
             };
             this.players += 1;
             this.handleGameEvent({newPlayerEvent});
@@ -621,6 +623,10 @@ class LocalClient extends BaseModel {
         for (const [entityId, [positionComponent, sizeComponent]] of entityQuery) {
             if (entityId === this.playerId) {
                 // can't collect yourself, or else you can't build yourself
+                continue;
+            }
+            if (sizeComponent.size > 50) {
+                // too big!
                 continue;
             }
             if (Math.abs(x - positionComponent.x) < sizeComponent.size / 2 && Math.abs(y - positionComponent.y) < sizeComponent.size / 2) {
