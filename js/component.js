@@ -5,13 +5,11 @@
  * @property {Object.<number, VelocityComponent>} velocityComponents
  * @property {Object.<number, DrawableComponent>} drawableComponents
  * @property {Object.<number, FollowPlayerComponent>} followPlayerComponents
- * @property {Object.<number, AgeableComponent>} ageableComponents
- * @property {Object.<number, HarvestableComponent>} harvestableComponents
  * @property {Object.<number, PlotComponent>} plotComponents
  */
 
 /**
- * @typedef {"positionComponents"|"sizeComponents"|"velocityComponents"|"drawableComponents"|"followPlayerComponents"|"ageableComponents"|"harvestableComponents"|"plotComponents"} ComponentName
+ * @typedef {"positionComponents"|"sizeComponents"|"velocityComponents"|"drawableComponents"|"followPlayerComponents"|"plotComponents"} ComponentName
  */
 
 /**
@@ -49,16 +47,8 @@
  */
 
 /**
- * @typedef {Object} AgeableComponent
- * @property {number} age
- */
-
-/**
- * @typedef {Object} HarvestableComponent
- */
-
-/**
  * @typedef {Object} PlotComponent
+ * @property {number} age
  */
 
 class FullComponentPools {
@@ -69,8 +59,6 @@ class FullComponentPools {
             velocityComponents: {},
             drawableComponents: {},
             followPlayerComponents: {},
-            ageableComponents: {},
-            harvestableComponents: {},
             plotComponents: {},
         }
     }
