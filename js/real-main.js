@@ -97,6 +97,7 @@ function startClient(host) {
     // disable right-click menu, and replace with auxclick.
     canvas.addEventListener('contextmenu', (event) => { event.preventDefault(); });
     canvas.addEventListener('auxclick', function(click) { localClient.auxClickHandler(click); });
+    canvas.addEventListener('mousewheel', function(mousewheelevent) { localClient.mousewheelHandler(mousewheelevent); });
 }
 
 /** @param {Host} host */

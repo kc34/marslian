@@ -38,6 +38,7 @@
 /**
  * @typedef {Object} UseEvent
  * @property {number} playerId
+ * @property {number} [playerHoldingId] -- Entity ID of whatever the Player is holding
  * @property {number} targetId
  */
 

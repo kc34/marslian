@@ -171,6 +171,7 @@ class BaseModel {
             this.gameState.entityIds[gameEvent.newPlayerEvent.cameraId] = true;
             this.gameState.poolsByComponentName.positionComponents[gameEvent.newPlayerEvent.cameraId] = {x: gameEvent.newPlayerEvent.cameraX, y: gameEvent.newPlayerEvent.cameraY};
             this.gameState.poolsByComponentName.followPlayerComponents[gameEvent.newPlayerEvent.cameraId] = {maxDistanceFromPlayer: 150, followingId: gameEvent.newPlayerEvent.playerId};
+            this.gameState.playerInventories[gameEvent.newPlayerEvent.playerId] = [-1];
         } else if (!!gameEvent.useEvent) {
             const targetId = gameEvent.useEvent.targetId;
             if (this.gameState.poolsByComponentName.plotComponents[targetId]) {
@@ -186,7 +187,7 @@ class BaseModel {
             // remove entity from world, and put in player inventory
             delete this.gameState.poolsByComponentName.positionComponents[gameEvent.collectEvent.itemId];
             if (!this.gameState.playerInventories[gameEvent.collectEvent.playerId]) {
-                this.gameState.playerInventories[gameEvent.collectEvent.playerId] = [];
+                this.gameState.playerInventories[gameEvent.collectEvent.playerId] = [-1];
             }
             this.gameState.playerInventories[gameEvent.collectEvent.playerId].push(gameEvent.collectEvent.itemId);
             console.log(this.gameState.playerInventories[gameEvent.collectEvent.playerId]);
@@ -461,36 +462,33 @@ class LocalClient extends BaseModel {
             (this.query(["drawableComponents", "positionComponents", "sizeComponents"]));
         for (const [entityId, [drawableComponent, positionComponent, sizeComponent]] of entityQuery) {
             const cameraPositionComponent = !!this.cameraId ? this.gameState.poolsByComponentName.positionComponents[this.cameraId] : undefined;
+            var screenX;
+            var screenY;
             if (!cameraPositionComponent) {
-                this.drawCircle(drawableComponent, ctx, positionComponent.x, positionComponent.y, 25);
+                screenX = positionComponent.x
+                screenY = positionComponent.y
             } else {
-                if (drawableComponent.shape === "CIRCLE") {
-                    this.drawCircle(
-                        drawableComponent,
-                        ctx,
-                        (canvas.width / 2) - (cameraPositionComponent.x - positionComponent.x) / scale,
-                        (canvas.height / 2) + (cameraPositionComponent.y - positionComponent.y) / scale,
-                        sizeComponent.size / scale);
-                } else if (drawableComponent.shape === "SQUARE") {
-                    this.drawSquare(
-                        drawableComponent,
-                        ctx,
-                        (canvas.width / 2) - (cameraPositionComponent.x - positionComponent.x) / scale,
-                        (canvas.height / 2) + (cameraPositionComponent.y - positionComponent.y) / scale,
-                        sizeComponent.size / scale);
-                }
+                screenX = (canvas.width / 2) - (cameraPositionComponent.x - positionComponent.x) / scale;
+                screenY = (canvas.height / 2) + (cameraPositionComponent.y - positionComponent.y) / scale;
+            }
 
-                // If it's a plot, also draw a little corn in it based on age.
-                const plotComponent = this.gameState.poolsByComponentName.plotComponents[entityId];
-                if (plotComponent) {
-                    this.drawCircle(
-                        {color: "#ffff00", shape: "CIRCLE"},
-                        ctx,
-                        (canvas.width / 2) - (cameraPositionComponent.x - positionComponent.x) / scale,
-                        (canvas.height / 2) + (cameraPositionComponent.y - positionComponent.y) / scale,
-                        sizeComponent.size / scale,
-                        plotComponent.age);
-                }
+            this.drawEntity(
+                drawableComponent,
+                ctx,
+                screenX,
+                screenY,
+                sizeComponent.size / scale);
+
+            // If it's a plot, also draw a little corn in it based on age.
+            const plotComponent = this.gameState.poolsByComponentName.plotComponents[entityId];
+            if (plotComponent) {
+                this.drawEntity(
+                    {color: "#ffff00", shape: "CIRCLE"},
+                    ctx,
+                    screenX,
+                    screenY,
+                    sizeComponent.size / scale,
+                    plotComponent.age);
             }
         }
 
@@ -502,6 +500,35 @@ class LocalClient extends BaseModel {
         if (!!cornSeedCountElement && cornSeedCountElement.textContent != this.gameState.cornSeeds.toString()) {
             cornSeedCountElement.textContent = this.gameState.cornSeeds.toString();
         }
+
+        this.drawEntity(
+            {color: "#ffffff", shape: "SQUARE", label: "holding"},
+            ctx,
+            canvas.width - 100,
+            canvas.height - 100,
+            200);
+        const playerHoldingId = this.gameState.playerInventories[this.playerId].at(-1);
+        if (playerHoldingId != -1) {
+            console.log(playerHoldingId);
+            this.drawEntity(
+                        this.gameState.poolsByComponentName.drawableComponents[playerHoldingId],
+                        ctx,
+                        canvas.width - 100,
+                        canvas.height - 100,
+                    100);
+
+            // If it's a plot, also draw a little corn in it based on age.
+            const plotComponent = this.gameState.poolsByComponentName.plotComponents[playerHoldingId];
+            if (plotComponent) {
+                this.drawEntity(
+                    {color: "#ffff00", shape: "CIRCLE"},
+                    ctx,
+                    canvas.width - 100,
+                    canvas.height - 100,
+                    100,
+                    plotComponent.age);
+            }
+        }
     }
 
     /**
@@ -512,34 +539,23 @@ class LocalClient extends BaseModel {
      * @param {number} size
      * @param {number} [age=100]
      */
-    drawCircle(drawableComponent, ctx, screenX, screenY, size, age) {
+    drawEntity(drawableComponent, ctx, screenX, screenY, size, age) {
         var agePercentage = 100;
         if (age !== undefined) {
             agePercentage = Math.min(age * 10, 100);
         }
-		ctx.beginPath();
-		ctx.arc(screenX, screenY, size / 2 * agePercentage / 100, 0, 2 * Math.PI);
-		ctx.fillStyle = drawableComponent.color;
-		ctx.fill();
-		ctx.font = "20px Courier New";
-        if (!!drawableComponent.label) {
-            const textWidth = ctx.measureText(drawableComponent.label);
-		    ctx.fillText(drawableComponent.label, screenX - textWidth.width / 2, screenY - size / 2 - 10);
+        if (drawableComponent.shape === 'CIRCLE') {
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, size / 2 * agePercentage / 100, 0, 2 * Math.PI);
+            ctx.fillStyle = drawableComponent.color;
+            ctx.fill();
+        } else if (drawableComponent.shape === 'SQUARE') {
+            ctx.beginPath();
+            ctx.rect(screenX - size / 2, screenY - size / 2, size, size);
+            ctx.fillStyle = drawableComponent.color;
+            ctx.fill();
         }
-    }
 
-    /**
-     * @param {DrawableComponent} drawableComponent
-     * @param {CanvasRenderingContext2D} ctx
-     * @param {number} screenX
-     * @param {number} screenY
-     * @param {number} size
-     */
-    drawSquare(drawableComponent, ctx, screenX, screenY, size) {
-		ctx.beginPath();
-		ctx.rect(screenX - size / 2, screenY - size / 2, size, size);
-		ctx.fillStyle = drawableComponent.color;
-		ctx.fill();
 		ctx.font = "20px Courier New";
         if (!!drawableComponent.label) {
             const textWidth = ctx.measureText(drawableComponent.label);
@@ -577,14 +593,18 @@ class LocalClient extends BaseModel {
         const entityQuery = /** @type {Map<number, [PositionComponent, SizeComponent]>} */ (this.query(["positionComponents", "sizeComponents"]));
         for (const [entityId, [positionComponent, sizeComponent]] of entityQuery) {
             if (Math.abs(x - positionComponent.x) < sizeComponent.size / 2 && Math.abs(y - positionComponent.y) < sizeComponent.size / 2) {
-                this.host.handlePacket(this, {gameEvent: {useEvent: {playerId: this.playerId, targetId: entityId}}});
+                this.host.handlePacket(this, {
+                    gameEvent: {
+                        useEvent: {
+                            playerId: this.playerId,
+                            playerHoldingId: this.gameState.playerInventories[this.playerId].at(-1),
+                            targetId: entityId}}});
                 return;
             }
         }
 
-        const playerInventory = this.gameState.playerInventories[this.playerId];
-        const itemId = playerInventory.at(-1);
-        if (itemId) {
+        const itemId = this.gameState.playerInventories[this.playerId].at(-1);
+        if (itemId && itemId != -1) {
             this.host.handlePacket(this, {gameEvent: {buildEvent: {playerId: this.playerId, itemId: itemId, x: x, y: y}}});
         }
     }
@@ -634,6 +654,19 @@ class LocalClient extends BaseModel {
                 return;
             }
         }
+    }
+
+    /** @param {WheelEvent} wheelEvent */
+    mousewheelHandler(wheelEvent) {
+        if (!this.playerId) {
+            return;
+        }
+        if (wheelEvent.deltaY > 0) {
+            this.gameState.playerInventories[this.playerId].unshift(this.gameState.playerInventories[this.playerId].pop());
+        } else if (wheelEvent.deltaY < 0) {
+            this.gameState.playerInventories[this.playerId].push(this.gameState.playerInventories[this.playerId].shift());
+        }
+
     }
 
     /** @param {KeyboardEvent} keyEvent */
