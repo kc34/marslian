@@ -580,19 +580,35 @@ class LocalClient extends BaseModel {
         if (Math.abs(x - playerPositionComponent.x) > 200 || Math.abs(y - playerPositionComponent.y) > 200) {
             return;
         }
-
+        
+        // Reject anything already harvestable
         const entityQuery =
-            /** @type {Map<number, [PositionComponent, SizeComponent]>} */
-            (this.query(["positionComponents", "sizeComponents"]));
-        for (const [entityId, [positionComponent, sizeComponent]] of entityQuery) {
-            if (entityId === this.playerId) {
-                // can't collect yourself, or else you can't build yourself
-                continue;
-            }
-            if (Math.abs(x - positionComponent.x) < sizeComponent.size / 2 && Math.abs(y - positionComponent.y) < sizeComponent.size / 2) {
-                this.host.handlePacket(this, {gameEvent: {collectEvent: {playerId: this.playerId, itemId: entityId}}});
+            /** @type {Map<number, [HarvestableComponent, PositionComponent]>} */
+            (this.query(["harvestableComponents", "positionComponents"]));
+        for (const [entityId, [_, positionComponent]] of entityQuery) {
+            if (Math.abs(x - positionComponent.x) < 25 && Math.abs(y - positionComponent.y) < 25) {
                 return;
             }
+        }
+
+        // Otherwise, plant.
+        // PlotSystem
+        const plotQuery =
+            /** @type {Map<number, [PlotComponent, PositionComponent]>} */
+            (this.query(["plotComponents", "positionComponents"]));
+        for (const [entityId, [_, positionComponent]] of plotQuery) {
+            if (Math.abs(x - positionComponent.x) < 25 && Math.abs(y - positionComponent.y) < 25) {
+                if (this.gameState.cornSeeds > 0) {
+                    this.host.handlePacket(this, {gameEvent: {plantEvent: {playerId: this.playerId, x: positionComponent.x, y: positionComponent.y}}});
+                }
+                return;
+            }
+        }
+
+        const playerInventory = this.gameState.playerInventories[this.playerId];
+        const itemId = playerInventory.at(-1);
+        if (itemId) {
+            this.host.handlePacket(this, {gameEvent: {buildEvent: {playerId: this.playerId, itemId: itemId, x: x, y: y}}});
         }
     }
 
@@ -623,35 +639,19 @@ class LocalClient extends BaseModel {
         if (Math.abs(x - playerPositionComponent.x) > 200 || Math.abs(y - playerPositionComponent.y) > 200) {
             return;
         }
-        
-        // Reject anything already harvestable
+
         const entityQuery =
-            /** @type {Map<number, [HarvestableComponent, PositionComponent]>} */
-            (this.query(["harvestableComponents", "positionComponents"]));
-        for (const [entityId, [_, positionComponent]] of entityQuery) {
-            if (Math.abs(x - positionComponent.x) < 25 && Math.abs(y - positionComponent.y) < 25) {
+            /** @type {Map<number, [PositionComponent, SizeComponent]>} */
+            (this.query(["positionComponents", "sizeComponents"]));
+        for (const [entityId, [positionComponent, sizeComponent]] of entityQuery) {
+            if (entityId === this.playerId) {
+                // can't collect yourself, or else you can't build yourself
+                continue;
+            }
+            if (Math.abs(x - positionComponent.x) < sizeComponent.size / 2 && Math.abs(y - positionComponent.y) < sizeComponent.size / 2) {
+                this.host.handlePacket(this, {gameEvent: {collectEvent: {playerId: this.playerId, itemId: entityId}}});
                 return;
             }
-        }
-
-        // Otherwise, plant.
-        // PlotSystem
-        const plotQuery =
-            /** @type {Map<number, [PlotComponent, PositionComponent]>} */
-            (this.query(["plotComponents", "positionComponents"]));
-        for (const [entityId, [_, positionComponent]] of plotQuery) {
-            if (Math.abs(x - positionComponent.x) < 25 && Math.abs(y - positionComponent.y) < 25) {
-                if (this.gameState.cornSeeds > 0) {
-                    this.host.handlePacket(this, {gameEvent: {plantEvent: {playerId: this.playerId, x: positionComponent.x, y: positionComponent.y}}});
-                }
-                return;
-            }
-        }
-
-        const playerInventory = this.gameState.playerInventories[this.playerId];
-        const itemId = playerInventory[0];
-        if (itemId) {
-            this.host.handlePacket(this, {gameEvent: {buildEvent: {playerId: this.playerId, itemId: itemId, x: x, y: y}}});
         }
     }
 
