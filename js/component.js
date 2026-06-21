@@ -1,6 +1,7 @@
 /**
  * @typedef {Object} FullComponentPool
  * @property {Object.<number, PositionComponent>} positionComponents
+ * @property {Object.<number, SizeComponent>} sizeComponents
  * @property {Object.<number, VelocityComponent>} velocityComponents
  * @property {Object.<number, DrawableComponent>} drawableComponents
  * @property {Object.<number, FollowPlayerComponent>} followPlayerComponents
@@ -10,7 +11,7 @@
  */
 
 /**
- * @typedef {"positionComponents"|"velocityComponents"|"drawableComponents"|"followPlayerComponents"|"ageableComponents"|"harvestableComponents"|"plotComponents"} ComponentName
+ * @typedef {"positionComponents"|"sizeComponents"|"velocityComponents"|"drawableComponents"|"followPlayerComponents"|"ageableComponents"|"harvestableComponents"|"plotComponents"} ComponentName
  */
 
 /**
@@ -21,6 +22,10 @@
  * @typedef {Object} PositionComponent
  * @property {number} x
  * @property {number} y
+ */
+
+/**
+ * @typedef {Object} SizeComponent
  * @property {number} size
  */
 
@@ -60,6 +65,7 @@ class FullComponentPools {
     static newComponentPool() {
         return {
             positionComponents: {},
+            sizeComponents: {},
             velocityComponents: {},
             drawableComponents: {},
             followPlayerComponents: {},
