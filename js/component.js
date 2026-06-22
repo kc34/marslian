@@ -39,7 +39,7 @@
  * @property {string} color
  * @property {string=} label
  * @property {string=} secondColor
- * @property {"CIRCLE"|"SQUARE"|"TREE"|"PLOT"} shape
+ * @property {"CIRCLE"|"SQUARE"|"TREE"|"PLOT"|"NOPE"} shape
  */
 
 /**

@@ -523,34 +523,35 @@ class LocalClient extends BaseModel {
             cornSeedCountElement.textContent = this.gameState.cornSeeds.toString();
         }
 
-        this.drawEntity(
-            {color: "#ffffff", shape: "SQUARE", label: "holding"},
-            ctx,
-            canvas.width - 100,
-            canvas.height - 100,
-            200);
-        const playerHoldingId = this.gameState.playerInventories[this.playerId].at(-1);
-        if (playerHoldingId != -1) {
-
-            var age;
-            if (this.gameState.poolsByComponentName.plotComponents[playerHoldingId]) {
-                age = this.gameState.poolsByComponentName.plotComponents[playerHoldingId].age;
-            } else if (this.gameState.poolsByComponentName.treeComponents[playerHoldingId]) {
-                age = this.gameState.poolsByComponentName.treeComponents[playerHoldingId].age;
+        const playerInventory = this.gameState.playerInventories[this.playerId];
+        for (let i = 0; i < playerInventory.length; i++) {
+            let itemX = canvas.width - 200 - ((playerInventory.length - 1) * 100) + (i * 100) + 50;
+            let itemY = canvas.height - 50;
+            let size = 100;
+            let label = "";
+            if (i == playerInventory.length - 1) {
+                itemX = canvas.width - 100;
+                itemY = canvas.height - 100;
+                size = 200;
+                label = "holding";
             }
-
+            // draw a background square to hold the entity.
             this.drawEntity(
-                        this.gameState.poolsByComponentName.drawableComponents[playerHoldingId],
-                        ctx,
-                        canvas.width - 100,
-                        canvas.height - 100,
-                    100,
-                    age);
+                {color: "#ffffff", shape: "CIRCLE", label}, ctx, itemX, itemY, size);
+            var age;
+            if (this.gameState.poolsByComponentName.plotComponents[playerInventory[i]]) {
+                age = this.gameState.poolsByComponentName.plotComponents[playerInventory[i]].age;
+            } else if (this.gameState.poolsByComponentName.treeComponents[playerInventory[i]]) {
+                age = this.gameState.poolsByComponentName.treeComponents[playerInventory[i]].age;
+            }
+            this.drawEntity(
+                    this.gameState.poolsByComponentName.drawableComponents[playerInventory[i]],
+                    ctx, itemX, itemY, size/2, age);
         }
     }
 
     /**
-     * @param {DrawableComponent} drawableComponent
+     * @param {DrawableComponent|undefined} drawableComponent
      * @param {CanvasRenderingContext2D} ctx
      * @param {number} screenX
      * @param {number} screenY
@@ -558,6 +559,9 @@ class LocalClient extends BaseModel {
      * @param {number} [age=100]
      */
     drawEntity(drawableComponent, ctx, screenX, screenY, size, age) {
+        if (drawableComponent === undefined) {
+            drawableComponent = {color: "red", shape: "NOPE"};
+        }
         const maxAge = 10;
         const ageRatio = Math.min((age || maxAge) / maxAge, 1);
         if (drawableComponent.shape === 'CIRCLE') {
@@ -593,7 +597,11 @@ class LocalClient extends BaseModel {
             ctx.arc(screenX, screenY + (1/6) * size - radius, radius, 0, 2 * Math.PI);
             ctx.fillStyle = drawableComponent.secondColor || "green";
             ctx.fill();
-
+        } else if (drawableComponent.shape === 'NOPE') {
+            ctx.fillStyle = drawableComponent.color;
+		    ctx.font = Math.round(size / 2).toString() + "px Courier New";
+		    ctx.fillText("NO", screenX - ctx.measureText("NO").width / 2, screenY);
+		    ctx.fillText("PE", screenX - ctx.measureText("PE").width / 2, screenY + size * 0.45);
         }
 
 		ctx.font = "20px Courier New";
@@ -626,6 +634,9 @@ class LocalClient extends BaseModel {
         
         // Reject clicks too far away from player.
         const playerPositionComponent = this.gameState.poolsByComponentName.positionComponents[this.playerId];
+        if (!playerPositionComponent) {
+            return;
+        }
         if (Math.abs(x - playerPositionComponent.x) > 200 || Math.abs(y - playerPositionComponent.y) > 200) {
             return;
         }
@@ -683,6 +694,9 @@ class LocalClient extends BaseModel {
         
         // Reject clicks too far away from player.
         const playerPositionComponent = this.gameState.poolsByComponentName.positionComponents[this.playerId];
+        if (!playerPositionComponent) {
+            return;
+        }
         if (Math.abs(x - playerPositionComponent.x) > 200 || Math.abs(y - playerPositionComponent.y) > 200) {
             return;
         }
@@ -693,10 +707,6 @@ class LocalClient extends BaseModel {
         for (const [entityId, [positionComponent, sizeComponent]] of entityQuery) {
             if (entityId === this.playerId) {
                 // can't collect yourself, or else you can't build yourself
-                continue;
-            }
-            if (sizeComponent.size > 50) {
-                // too big!
                 continue;
             }
             if (Math.abs(x - positionComponent.x) <= sizeComponent.size / 2 && Math.abs(y - positionComponent.y) <= sizeComponent.size / 2) {
