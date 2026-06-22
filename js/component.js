@@ -6,10 +6,11 @@
  * @property {Object.<number, DrawableComponent>} drawableComponents
  * @property {Object.<number, FollowPlayerComponent>} followPlayerComponents
  * @property {Object.<number, PlotComponent>} plotComponents
+ * @property {Object.<number, TreeComponent>} treeComponents
  */
 
 /**
- * @typedef {"positionComponents"|"sizeComponents"|"velocityComponents"|"drawableComponents"|"followPlayerComponents"|"plotComponents"} ComponentName
+ * @typedef {"positionComponents"|"sizeComponents"|"velocityComponents"|"drawableComponents"|"followPlayerComponents"|"plotComponents"|"treeComponents"} ComponentName
  */
 
 /**
@@ -37,7 +38,8 @@
  * @typedef {Object} DrawableComponent
  * @property {string} color
  * @property {string=} label
- * @property {"CIRCLE"|"SQUARE"} shape
+ * @property {string=} secondColor
+ * @property {"CIRCLE"|"SQUARE"|"TREE"|"PLOT"} shape
  */
 
 /**
@@ -51,6 +53,11 @@
  * @property {number} age
  */
 
+/**
+ * @typedef {Object} TreeComponent
+ * @property {number} age
+ */
+
 class FullComponentPools {
     static newComponentPool() {
         return {
@@ -60,6 +67,7 @@ class FullComponentPools {
             drawableComponents: {},
             followPlayerComponents: {},
             plotComponents: {},
+            treeComponents: {},
         }
     }
 }

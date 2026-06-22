@@ -132,6 +132,10 @@ class BaseModel {
         for (const [_, plotComponents] of Object.entries(this.gameState.poolsByComponentName.plotComponents)) {
             plotComponents.age += this.TIME_STEP;
         }
+        // AgeableSystem
+        for (const [_, treeComponents] of Object.entries(this.gameState.poolsByComponentName.treeComponents)) {
+            treeComponents.age += this.TIME_STEP;
+        }
     }
 
     /**
@@ -144,8 +148,22 @@ class BaseModel {
         this.gameState.entityIds[plotId] = true;
         this.gameState.poolsByComponentName.positionComponents[plotId] = {x: x, y: y};
         this.gameState.poolsByComponentName.sizeComponents[plotId] = {size: size};
-        this.gameState.poolsByComponentName.drawableComponents[plotId] = {color: "#832a2a", shape: "SQUARE"};
+        this.gameState.poolsByComponentName.drawableComponents[plotId] = {color: "#832a2a", shape: "PLOT", secondColor: "yellow"};
         this.gameState.poolsByComponentName.plotComponents[plotId] = {age: 0};
+    }
+
+    /**
+     * @param {number} x
+     * @param {number} y
+     * @param {number} [size=50]
+     */
+    makeTree(x, y, size = 50) {
+        const treeId = this.getNextId();
+        this.gameState.entityIds[treeId] = true;
+        this.gameState.poolsByComponentName.positionComponents[treeId] = {x: x, y: y};
+        this.gameState.poolsByComponentName.sizeComponents[treeId] = {size: size};
+        this.gameState.poolsByComponentName.drawableComponents[treeId] = {color: "#832a2a", shape: "TREE"};
+        this.gameState.poolsByComponentName.treeComponents[treeId] = {age: 0};
     }
 
     /** @param {GameEvent} gameEvent */
@@ -178,7 +196,13 @@ class BaseModel {
                 const plotComponent = this.gameState.poolsByComponentName.plotComponents[targetId];
                 if (plotComponent.age > 10) {
                     this.gameState.cornCount += 1;
-                    this.gameState.poolsByComponentName.plotComponents[targetId].age = 0;
+                    plotComponent.age = 0;
+                }
+            } else if (this.gameState.poolsByComponentName.treeComponents[targetId]) {
+                const treeComponent = this.gameState.poolsByComponentName.treeComponents[targetId];
+                if (treeComponent.age > 10) {
+                    this.gameState.cornCount += 1;
+                    treeComponent.age = 0;
                 }
             }
         } else if (!!gameEvent.collectEvent) {
@@ -281,12 +305,18 @@ class LocalHost extends BaseModel {
             }
         }
 
-        // make 4 3x3 plots
         for (let x = -16; x <= -4; x++) {
             for (let y = -18; y >= -22; y -= 2) {
                 this.makePlot(x * 50, y * 50);
             }
         }
+
+        for (let x = -20; x <= -18; x++) {
+            for (let y = -18; y >= -22; y -= 2) {
+                this.makeTree(x * 50, y * 50);
+            }
+        }
+
 
         // city
         const kitchenId = this.getNextId();
@@ -382,21 +412,13 @@ class LocalClient extends BaseModel {
 
     /**
      * @param {Host} host
-     * @param {string} up
-     * @param {string} down
-     * @param {string} left
-     * @param {string} right
      * @param {string} name
      * @param {string} color
      */
-    constructor(host, up, down, left, right, name, color) {
+    constructor(host, name, color) {
         super();
         this.host = host;
-        this.up = up;
-        this.down = down;
-        this.left = left;
-        this.right = right;
-        var data = this.host.handlePacket(this, {playerJoinPacket: {name: name, color: color}});
+        this.host.handlePacket(this, {playerJoinPacket: {name: name, color: color}});
     }
 
     /**
@@ -425,19 +447,23 @@ class LocalClient extends BaseModel {
         } else {
             const initialVelocity = {x: playerVelocityComponent.x, y: playerVelocityComponent.y}
             // ControllableSystem
-            if (this.pressedKeys.has(this.up)) {
-                playerVelocityComponent.y = 120;
-            } else if (this.pressedKeys.has(this.down)) {
-                playerVelocityComponent.y = -120;
+            if (this.pressedKeys.has("W")) {
+                playerVelocityComponent.y = 125;
+            } else if (this.pressedKeys.has("S")) {
+                playerVelocityComponent.y = -125;
             } else {
                 playerVelocityComponent.y = 0;
             }
-            if (this.pressedKeys.has(this.left)) {
-                playerVelocityComponent.x = -120;
-            } else if (this.pressedKeys.has(this.right)) {
-                playerVelocityComponent.x = 120;
+            if (this.pressedKeys.has("A")) {
+                playerVelocityComponent.x = -125;
+            } else if (this.pressedKeys.has("D")) {
+                playerVelocityComponent.x = 125;
             } else {
                 playerVelocityComponent.x = 0;
+            }
+            if (this.pressedKeys.has("Shift".toUpperCase())) {
+                playerVelocityComponent.x *= 2;
+                playerVelocityComponent.y *= 2;
             }
             if (initialVelocity.x != playerVelocityComponent.x || initialVelocity.y != playerVelocityComponent.y) {
                 this.host.handlePacket(this, {gameEvent: {velocityChangeEvent: {playerId: this.playerId, x: playerVelocityComponent.x, y: playerVelocityComponent.y}}});
@@ -472,24 +498,20 @@ class LocalClient extends BaseModel {
                 screenY = (canvas.height / 2) + (cameraPositionComponent.y - positionComponent.y) / scale;
             }
 
+            var age;
+            if (this.gameState.poolsByComponentName.plotComponents[entityId]) {
+                age = this.gameState.poolsByComponentName.plotComponents[entityId].age;
+            } else if (this.gameState.poolsByComponentName.treeComponents[entityId]) {
+                age = this.gameState.poolsByComponentName.treeComponents[entityId].age;
+            }
+
             this.drawEntity(
                 drawableComponent,
                 ctx,
                 screenX,
                 screenY,
-                sizeComponent.size / scale);
-
-            // If it's a plot, also draw a little corn in it based on age.
-            const plotComponent = this.gameState.poolsByComponentName.plotComponents[entityId];
-            if (plotComponent) {
-                this.drawEntity(
-                    {color: "#ffff00", shape: "CIRCLE"},
-                    ctx,
-                    screenX,
-                    screenY,
-                    sizeComponent.size / scale,
-                    plotComponent.age);
-            }
+                sizeComponent.size / scale,
+                age);
         }
 
         const cornCountElement = document.getElementById("corn-count");
@@ -509,25 +531,21 @@ class LocalClient extends BaseModel {
             200);
         const playerHoldingId = this.gameState.playerInventories[this.playerId].at(-1);
         if (playerHoldingId != -1) {
-            console.log(playerHoldingId);
+
+            var age;
+            if (this.gameState.poolsByComponentName.plotComponents[playerHoldingId]) {
+                age = this.gameState.poolsByComponentName.plotComponents[playerHoldingId].age;
+            } else if (this.gameState.poolsByComponentName.treeComponents[playerHoldingId]) {
+                age = this.gameState.poolsByComponentName.treeComponents[playerHoldingId].age;
+            }
+
             this.drawEntity(
                         this.gameState.poolsByComponentName.drawableComponents[playerHoldingId],
                         ctx,
                         canvas.width - 100,
                         canvas.height - 100,
-                    100);
-
-            // If it's a plot, also draw a little corn in it based on age.
-            const plotComponent = this.gameState.poolsByComponentName.plotComponents[playerHoldingId];
-            if (plotComponent) {
-                this.drawEntity(
-                    {color: "#ffff00", shape: "CIRCLE"},
-                    ctx,
-                    canvas.width - 100,
-                    canvas.height - 100,
                     100,
-                    plotComponent.age);
-            }
+                    age);
         }
     }
 
@@ -540,20 +558,42 @@ class LocalClient extends BaseModel {
      * @param {number} [age=100]
      */
     drawEntity(drawableComponent, ctx, screenX, screenY, size, age) {
-        var agePercentage = 100;
-        if (age !== undefined) {
-            agePercentage = Math.min(age * 10, 100);
-        }
+        const maxAge = 10;
+        const ageRatio = Math.min((age || maxAge) / maxAge, 1);
         if (drawableComponent.shape === 'CIRCLE') {
             ctx.beginPath();
-            ctx.arc(screenX, screenY, size / 2 * agePercentage / 100, 0, 2 * Math.PI);
+            const radius = size / 2;
+            ctx.arc(screenX, screenY, radius, 0, 2 * Math.PI);
             ctx.fillStyle = drawableComponent.color;
             ctx.fill();
         } else if (drawableComponent.shape === 'SQUARE') {
             ctx.beginPath();
+            // rect uses the top left corner
             ctx.rect(screenX - size / 2, screenY - size / 2, size, size);
             ctx.fillStyle = drawableComponent.color;
             ctx.fill();
+        } else if (drawableComponent.shape === 'PLOT') {
+            ctx.beginPath();
+            ctx.rect(screenX - size / 2, screenY - size / 2, size, size);
+            ctx.fillStyle = drawableComponent.color;
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, size / 2 * ageRatio, 0, 2 * Math.PI);
+            ctx.fillStyle = drawableComponent.secondColor || "#ffffff";
+            ctx.fill();
+        } else if (drawableComponent.shape === 'TREE') {
+            ctx.beginPath();
+            ctx.rect(screenX - (size / 6), screenY + size / 2, size / 3, - size / 3);
+            ctx.fillStyle = drawableComponent.color;
+            ctx.fill();
+
+            ctx.beginPath();
+            const radius = (size) / 2 * ageRatio;
+            ctx.arc(screenX, screenY + (1/6) * size - radius, radius, 0, 2 * Math.PI);
+            ctx.fillStyle = drawableComponent.secondColor || "green";
+            ctx.fill();
+
         }
 
 		ctx.font = "20px Courier New";
@@ -590,9 +630,14 @@ class LocalClient extends BaseModel {
             return;
         }
 
+        if (this.pressedKeys.has("Shift".toUpperCase())) {
+            x = Math.round(x / 25) * 25;
+            y = Math.round(y / 25) * 25;
+        }
+
         const entityQuery = /** @type {Map<number, [PositionComponent, SizeComponent]>} */ (this.query(["positionComponents", "sizeComponents"]));
         for (const [entityId, [positionComponent, sizeComponent]] of entityQuery) {
-            if (Math.abs(x - positionComponent.x) < sizeComponent.size / 2 && Math.abs(y - positionComponent.y) < sizeComponent.size / 2) {
+            if (Math.abs(x - positionComponent.x) <= sizeComponent.size / 2 && Math.abs(y - positionComponent.y) <= sizeComponent.size / 2) {
                 this.host.handlePacket(this, {
                     gameEvent: {
                         useEvent: {
@@ -630,6 +675,11 @@ class LocalClient extends BaseModel {
             x = clickEvent.offsetX - window.innerWidth / 2 + cameraPositionComponent.x
             y = window.innerHeight / 2 + cameraPositionComponent.y - clickEvent.offsetY
         }
+
+        if (this.pressedKeys.has("Shift".toUpperCase())) {
+            x = Math.round(x / 25) * 25;
+            y = Math.round(y / 25) * 25
+        }
         
         // Reject clicks too far away from player.
         const playerPositionComponent = this.gameState.poolsByComponentName.positionComponents[this.playerId];
@@ -649,7 +699,7 @@ class LocalClient extends BaseModel {
                 // too big!
                 continue;
             }
-            if (Math.abs(x - positionComponent.x) < sizeComponent.size / 2 && Math.abs(y - positionComponent.y) < sizeComponent.size / 2) {
+            if (Math.abs(x - positionComponent.x) <= sizeComponent.size / 2 && Math.abs(y - positionComponent.y) <= sizeComponent.size / 2) {
                 this.host.handlePacket(this, {gameEvent: {collectEvent: {playerId: this.playerId, itemId: entityId}}});
                 return;
             }
@@ -661,23 +711,26 @@ class LocalClient extends BaseModel {
         if (!this.playerId) {
             return;
         }
+        const playerInventory = this.gameState.playerInventories[this.playerId];
+
         if (wheelEvent.deltaY > 0) {
-            this.gameState.playerInventories[this.playerId].unshift(this.gameState.playerInventories[this.playerId].pop());
+            playerInventory.unshift(playerInventory.pop());
         } else if (wheelEvent.deltaY < 0) {
-            this.gameState.playerInventories[this.playerId].push(this.gameState.playerInventories[this.playerId].shift());
+            playerInventory.push(playerInventory.shift());
         }
 
     }
 
     /** @param {KeyboardEvent} keyEvent */
     keydownHandler(keyEvent) {
-        const key = String.fromCharCode(keyEvent.keyCode);
+        const key = keyEvent.key.toUpperCase();
+        console.log(key);
         this.pressedKeys.add(key);
     }
 
     /** @param {KeyboardEvent} keyEvent */
     keyupHandler(keyEvent) {
-        const key = String.fromCharCode(keyEvent.keyCode);
+        const key = keyEvent.key.toUpperCase();
         this.pressedKeys.delete(key);
     }
 }

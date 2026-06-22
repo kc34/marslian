@@ -80,7 +80,7 @@ function startHost() {
 
 /** @param {Host} host */
 function startClient(host) {
-    var localClient = new LocalClient(host, "W", "S", "A", "D", usernameInput.value, colorPickerInput.value);
+    var localClient = new LocalClient(host, usernameInput.value, colorPickerInput.value);
     setInterval(function() {
         localClient.tick();
     }, 1000.0 / 60)
