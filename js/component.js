@@ -8,6 +8,8 @@
  * @property {Object.<number, AgeableComponent>} ageableComponents
  * @property {Object.<number, UsableComponent>} usableComponents // TODO: maybe rename to structure behavior component?
  * @property {Object.<number, BuildableComponent>} buildableComponents // TODO: maybe rename to item behavior component?
+ * @property {Object.<number, HitboxComponent>} hitboxComponents
+ * @property {Object.<number, HurtboxComponent>} hurtboxComponents
  */
 
 /**
@@ -22,6 +24,8 @@
  * @property {AgeableComponent} [ageableComponent]
  * @property {UsableComponent} [usableComponent]
  * @property {BuildableComponent} [buildableComponent]
+ * @property {HitboxComponent} [hitboxComponent]
+ * @property {HurtboxComponent} [hurtboxComponent]
  */
 
 /** @typedef {keyof EntityComponents} ComponentName */
@@ -78,6 +82,20 @@
  * @property {"BOW"|"BUILD"} behavior
  */
 
+/**
+ * @typedef {Object} HitboxComponent
+ * @property {number} radius
+ * @property {number} damage
+ */
+
+/**
+ * @typedef {Object} HurtboxComponent
+ * @property {number} radius
+ * @property {number} maxHealth
+ * @property {number} currentHealth
+ * @property {number[]} alreadyHitBy
+ */
+
 class FullComponentPools {
     static newComponentPool() {
         return {
@@ -89,6 +107,8 @@ class FullComponentPools {
             ageableComponents: {},
             usableComponents: {},
             buildableComponents: {},
+            hitboxComponents: {},
+            hurtboxComponents: {},
         }
     }
 }

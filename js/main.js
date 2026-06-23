@@ -57,7 +57,7 @@ class BaseModel {
     /** Reserves and returns the next Entity ID. */
     popNextId() {
         var highestId = -1;
-        for (const id in Object.keys(this.gameState.entityIds)) {
+        for (const id of Object.keys(this.gameState.entityIds)) {
             if (parseInt(id) > highestId) {
                 highestId = parseInt(id);
             }
@@ -171,6 +171,28 @@ class BaseModel {
                             sizeComponent: {size: 25},
                             drawableComponent: {color: "lightgreen", shape: "CIRCLE", label: "slime"},
                         });
+                }
+            }
+        }
+
+        const hitboxEntities = this.query(["hitboxComponent", "positionComponent"]);
+        for (const [hitEntity, {hitboxComponent, positionComponent: hitPositionComponent}] of hitboxEntities) {
+            const hurtboxEntities = this.query(["hurtboxComponent", "positionComponent"]);
+            for (const [hurtEntity, {hurtboxComponent, positionComponent: hurtPositionComponent}] of hurtboxEntities) {
+                const distance = 
+                    Math.pow(Math.pow(hurtPositionComponent.x - hitPositionComponent.x, 2) + Math.pow(hurtPositionComponent.y - hitPositionComponent.y, 2), 0.5);
+                if (distance < hurtboxComponent.radius + hitboxComponent.radius) {
+                    hurtboxComponent.currentHealth -= hitboxComponent?.damage;
+                    delete this.gameState.entityIds[hitEntity];
+                    for (const [_, componentPool] of Object.entries(this.gameState.poolsByComponentName)) {
+                        delete componentPool[hitEntity];
+                    }
+                }
+                if (hurtboxComponent.currentHealth <= 0) {
+                    delete this.gameState.entityIds[hurtEntity];
+                    for (const [_, componentPool] of Object.entries(this.gameState.poolsByComponentName)) {
+                        delete componentPool[hurtEntity];
+                    }
                 }
             }
         }
@@ -338,6 +360,7 @@ class BaseModel {
                             y: (gameEvent.buildEvent.y - playerPositionComponent.y) / distance * 1000
                         },
                         drawableComponent: {color: "black", shape: "CIRCLE", label: "pew!"},
+                        hitboxComponent: {radius: 5, damage: 50}
                     });
             } else if (this.gameState.poolsByComponentName.buildableComponents[gameEvent.buildEvent.itemId]?.behavior === "BUILD" || this.gameState.poolsByComponentName.buildableComponents[gameEvent.buildEvent.itemId]?.behavior === undefined) {
                 // delete from player inventory, and put into world
@@ -482,6 +505,7 @@ class LocalHost extends BaseModel {
                 drawableComponent: {color: "lightgreen", shape: "CIRCLE", label: "Slime Spawner"},
                 ageableComponent: {age: 0},
                 buildableComponent: {behavior: "BUILD"},
+                hurtboxComponent: {radius: 150, maxHealth: 100, currentHealth: 100, alreadyHitBy: []},
             });
     }
 
