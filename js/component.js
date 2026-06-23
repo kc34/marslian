@@ -11,12 +11,20 @@
  */
 
 /**
- * @typedef {"positionComponents"|"sizeComponents"|"velocityComponents"|"drawableComponents"|"followPlayerComponents"|"ageableComponents"|"usableComponents"|"buildableComponents"} ComponentName
+ * Holds a set of Components for a specific entity.
+ * 
+ * @typedef {Object} EntityComponents
+ * @property {PositionComponent} [positionComponent]
+ * @property {SizeComponent} [sizeComponent]
+ * @property {VelocityComponent} [velocityComponent]
+ * @property {DrawableComponent} [drawableComponent]
+ * @property {FollowPlayerComponent} [followPlayerComponent]
+ * @property {AgeableComponent} [ageableComponent]
+ * @property {UsableComponent} [usableComponent]
+ * @property {BuildableComponent} [buildableComponent]
  */
 
-/**
- * @typedef {Object} Component
- */
+/** @typedef {keyof EntityComponents} ComponentName */
 
 /**
  * @typedef {Object} PositionComponent

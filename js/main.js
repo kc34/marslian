@@ -71,12 +71,12 @@ class BaseModel {
      * @param {ComponentName[]} componentNames
      */
     query(componentNames) {
-        /** @type {Map<number, Component[]>} */
+        /** @type {Map<number, EntityComponents>} */
         const entities = new Map();
         for (const entityId of Object.keys(this.gameState.entityIds)) {
-            const components = [];
+            const entityComponents = {};
             for (const componentName of componentNames) {
-                const componentPool = this.gameState.poolsByComponentName[componentName];
+                const componentPool = this.gameState.poolsByComponentName[componentName + 's'];
                 if (!componentPool) {
                     break;
                 }
@@ -84,30 +84,41 @@ class BaseModel {
                 if (!component) {
                     break;
                 }
-                components.push(component);
+                entityComponents[componentName] = component;
             }
-            if (components.length == componentNames.length) {
-                entities.set(parseInt(entityId), components);
+            if (Object.entries(entityComponents).length == componentNames.length) {
+                entities.set(parseInt(entityId), entityComponents);
             }
         }
         return entities;
     }
 
+    /**
+     * 
+     * @param {number} entityId 
+     * @param {EntityComponents} entityComponents 
+     */
+    setEntityComponents(entityId, entityComponents) {
+        for (const [componentName, component] of Object.entries(entityComponents)) {
+            this.gameState.poolsByComponentName[componentName + 's'][entityId] = component;
+        }
+    }
+
     tick() {
         this.gameState.frameCount += 1;
         const velocityEntityQuery =
-            /** @type {Map<number, [VelocityComponent, PositionComponent]>} */
-            (this.query(["velocityComponents", "positionComponents"]));
-        for (const [_, [velocityComponent, positionComponent]] of velocityEntityQuery) {
+            /** @type {Map<Number, {velocityComponent: VelocityComponent, positionComponent: PositionComponent}>} */
+            (this.query(["velocityComponent", "positionComponent"]));
+        for (const [_, {velocityComponent, positionComponent}] of velocityEntityQuery) {
             positionComponent.x += velocityComponent.x * this.TIME_STEP;
             positionComponent.y += velocityComponent.y * this.TIME_STEP;
         }
 
         // FollowPlayerSystem
         const followPlayerEntityQuery =
-            /** @type {Map<number, [FollowPlayerComponent, PositionComponent]>} */
-            (this.query(["followPlayerComponents", "positionComponents"]));
-        for (const [_, [followPlayerComponent, positionComponent]] of followPlayerEntityQuery) {
+            /** @type {Map<Number, {followPlayerComponent: FollowPlayerComponent, positionComponent: PositionComponent}>} */
+            (this.query(["followPlayerComponent", "positionComponent"]));
+        for (const [_, {followPlayerComponent, positionComponent}] of followPlayerEntityQuery) {
             const maxDistanceFromPlayer = followPlayerComponent.maxDistanceFromPlayer;
             const playerPositionComponent = this.gameState.poolsByComponentName.positionComponents[followPlayerComponent.followingId];
             if (!playerPositionComponent) {
@@ -144,11 +155,15 @@ class BaseModel {
      */
     makePlot(x, y, size = 50) {
         const plotId = this.popNextId();
-        this.gameState.poolsByComponentName.positionComponents[plotId] = {x: x, y: y};
-        this.gameState.poolsByComponentName.sizeComponents[plotId] = {size: size};
-        this.gameState.poolsByComponentName.drawableComponents[plotId] = {color: "#832a2a", shape: "PLOT", secondColor: "yellow"};
-        this.gameState.poolsByComponentName.ageableComponents[plotId] = {age: 0};
-        this.gameState.poolsByComponentName.usableComponents[plotId] = {behavior: "PLOT"}
+        this.setEntityComponents(
+            plotId,
+            {
+                positionComponent: {x: x, y: y},
+                sizeComponent: {size: size},
+                drawableComponent: {color: "#832a2a", shape: "PLOT", secondColor: "yellow"},
+                ageableComponent: {age: 0},
+                usableComponent: {behavior: "PLOT"},
+            });
     }
 
     /**
@@ -158,11 +173,15 @@ class BaseModel {
      */
     makeTree(x, y, size = 50) {
         const treeId = this.popNextId();
-        this.gameState.poolsByComponentName.positionComponents[treeId] = {x: x, y: y};
-        this.gameState.poolsByComponentName.sizeComponents[treeId] = {size: size};
-        this.gameState.poolsByComponentName.drawableComponents[treeId] = {color: "brown", shape: "TREE"};
-        this.gameState.poolsByComponentName.ageableComponents[treeId] = {age: 0};
-        this.gameState.poolsByComponentName.usableComponents[treeId] = {behavior: "TREE"}
+        this.setEntityComponents(
+            treeId,
+            {
+                positionComponent: {x: x, y: y},
+                sizeComponent: {size: size},
+                drawableComponent: {color: "brown", shape: "TREE"},
+                ageableComponent: {age: 0},
+                usableComponent: {behavior: "TREE"},
+            });
     }
 
     /** @param {GameEvent} gameEvent */
@@ -180,12 +199,20 @@ class BaseModel {
                 playerPositionComponent.y = gameEvent.velocityChangeEvent.y;
             }
         } else if (!!gameEvent.newPlayerEvent) {
-            this.gameState.poolsByComponentName.positionComponents[gameEvent.newPlayerEvent.playerId] = {x: gameEvent.newPlayerEvent.x, y: gameEvent.newPlayerEvent.y};
-            this.gameState.poolsByComponentName.sizeComponents[gameEvent.newPlayerEvent.playerId] = {size: 50};
-            this.gameState.poolsByComponentName.velocityComponents[gameEvent.newPlayerEvent.playerId] = {x: 0, y: 0}
-            this.gameState.poolsByComponentName.drawableComponents[gameEvent.newPlayerEvent.playerId] = {color: gameEvent.newPlayerEvent.color, label: gameEvent.newPlayerEvent.label, shape: "CIRCLE"};
-            this.gameState.poolsByComponentName.positionComponents[gameEvent.newPlayerEvent.cameraId] = {x: gameEvent.newPlayerEvent.cameraX, y: gameEvent.newPlayerEvent.cameraY};
-            this.gameState.poolsByComponentName.followPlayerComponents[gameEvent.newPlayerEvent.cameraId] = {maxDistanceFromPlayer: 150, followingId: gameEvent.newPlayerEvent.playerId};
+            this.setEntityComponents(
+                gameEvent.newPlayerEvent.playerId,
+                {
+                    positionComponent: {x: gameEvent.newPlayerEvent.x, y: gameEvent.newPlayerEvent.y},
+                    sizeComponent: {size: 50},
+                    velocityComponent: {x: 0, y: 0},
+                    drawableComponent: {color: gameEvent.newPlayerEvent.color, label: gameEvent.newPlayerEvent.label, shape: "CIRCLE"},
+                });
+            this.setEntityComponents(
+                gameEvent.newPlayerEvent.cameraId,
+                {
+                    positionComponent: {x: gameEvent.newPlayerEvent.cameraX, y: gameEvent.newPlayerEvent.cameraY},
+                    followPlayerComponent: {maxDistanceFromPlayer: 150, followingId: gameEvent.newPlayerEvent.playerId},
+                });
             this.gameState.playerInventories[gameEvent.newPlayerEvent.playerId] = [-1];
         } else if (!!gameEvent.useEvent) {
             const targetId = gameEvent.useEvent.targetId;
@@ -193,8 +220,12 @@ class BaseModel {
                 const ageableComponent = this.gameState.poolsByComponentName.ageableComponents[targetId];
                 if (ageableComponent.age > 10) {
                     const cornId = this.popNextId();
-                    this.gameState.poolsByComponentName.sizeComponents[cornId] = {size: this.gameState.poolsByComponentName.sizeComponents[targetId].size};
-                    this.gameState.poolsByComponentName.drawableComponents[cornId] = {color: "yellow", shape: "CIRCLE"};
+                    this.setEntityComponents(
+                        cornId,
+                        {
+                            sizeComponent: {size: this.gameState.poolsByComponentName.sizeComponents[targetId].size},
+                            drawableComponent: {color: "yellow", shape: "CIRCLE"},
+                        });
                     this.gameState.playerInventories[gameEvent.useEvent.playerId].push(cornId);
                     ageableComponent.age = 0;
                 }
@@ -203,15 +234,23 @@ class BaseModel {
                 if (ageableComponent.age > 10) {
                     const woodId = this.popNextId();
                     // trees are big so we make the wood half as big
-                    this.gameState.poolsByComponentName.sizeComponents[woodId] = {size: this.gameState.poolsByComponentName.sizeComponents[targetId].size / 2};
-                    this.gameState.poolsByComponentName.drawableComponents[woodId] = {color: "brown", shape: "SQUARE"};
+                    this.setEntityComponents(
+                        woodId,
+                        {
+                            sizeComponent: {size: this.gameState.poolsByComponentName.sizeComponents[targetId].size / 2},
+                            drawableComponent: {color: "brown", shape: "SQUARE"},
+                        });
                     this.gameState.playerInventories[gameEvent.useEvent.playerId].push(woodId);
                     ageableComponent.age = 0;
                 }
             } else if (this.gameState.poolsByComponentName.usableComponents[targetId]?.behavior == "WORKSHOP") {
                 const bowId = this.popNextId();
-                this.gameState.poolsByComponentName.drawableComponents[bowId] = {color: "black", shape: "SQUARE", label: "bow"};
-                this.gameState.poolsByComponentName.buildableComponents[bowId] = {behavior: "BOW"}
+                this.setEntityComponents(
+                        bowId,
+                        {
+                            drawableComponent: {color: "black", shape: "SQUARE", label: "bow"},
+                            buildableComponent: {behavior: "BOW"},
+                        });
                 this.gameState.playerInventories[gameEvent.useEvent.playerId].push(bowId);
             }
         } else if (!!gameEvent.collectEvent) {
@@ -229,16 +268,20 @@ class BaseModel {
             
             // if bow, we don't want to actually build it
             if (this.gameState.poolsByComponentName.buildableComponents[gameEvent.buildEvent.itemId]?.behavior == "BOW") {
-                const arrow = this.popNextId();
                 const playerPositionComponent = this.gameState.poolsByComponentName.positionComponents[gameEvent.buildEvent.playerId];
-                this.gameState.poolsByComponentName.positionComponents[arrow] = {x: playerPositionComponent.x, y: playerPositionComponent.y}
                 const distance = Math.pow(Math.pow(gameEvent.buildEvent.x - playerPositionComponent.x, 2) + Math.pow(gameEvent.buildEvent.y - playerPositionComponent.y, 2), 0.5); // used for norming
-                this.gameState.poolsByComponentName.velocityComponents[arrow] = {
-                    x: (gameEvent.buildEvent.x - playerPositionComponent.x) / distance * 1000,
-                    y: (gameEvent.buildEvent.y - playerPositionComponent.y) / distance * 1000
-                }
-                this.gameState.poolsByComponentName.drawableComponents[arrow] = {color: "black", shape: "CIRCLE", label: "pew!"};
-                this.gameState.poolsByComponentName.sizeComponents[arrow] = {size: 5};
+                const arrow = this.popNextId();
+                this.setEntityComponents(
+                    arrow,
+                    {
+                        positionComponent: {x: playerPositionComponent.x, y: playerPositionComponent.y},
+                        sizeComponent: {size: 5},
+                        velocityComponent: {
+                            x: (gameEvent.buildEvent.x - playerPositionComponent.x) / distance * 1000,
+                            y: (gameEvent.buildEvent.y - playerPositionComponent.y) / distance * 1000
+                        },
+                        drawableComponent: {color: "black", shape: "CIRCLE", label: "pew!"},
+                    });
                 return;
             }
 
@@ -278,9 +321,13 @@ class LocalHost extends BaseModel {
         for (let x = -1; x <= 1; x++) {
             for (let y = -25; y <= 25; y++) {
                 const waterId = this.popNextId();
-                this.gameState.poolsByComponentName.positionComponents[waterId] = {x: 50 * x, y: y * 50};
-                this.gameState.poolsByComponentName.sizeComponents[waterId] = {size: 50};
-                this.gameState.poolsByComponentName.drawableComponents[waterId] = {color: "#0080ff", shape: "SQUARE"};
+                this.setEntityComponents(
+                    waterId,
+                    {
+                        positionComponent: {x: 50 * x, y: y * 50},
+                        sizeComponent: {size: 50},
+                        drawableComponent: {color: "#0080ff", shape: "SQUARE"},
+                    });
             }
         }
 
@@ -291,9 +338,13 @@ class LocalHost extends BaseModel {
                     continue; // draw a bridge here
                 }
                 const roadId = this.popNextId();
-                this.gameState.poolsByComponentName.positionComponents[roadId] = {x: 50 * x, y: y * 50};
-                this.gameState.poolsByComponentName.sizeComponents[roadId] = {size: 50};
-                this.gameState.poolsByComponentName.drawableComponents[roadId] = {color: "gray", shape: "SQUARE"};
+                this.setEntityComponents(
+                    roadId,
+                    {
+                        positionComponent: {x: 50 * x, y: y * 50},
+                        sizeComponent: {size: 50},
+                        drawableComponent: {color: "gray", shape: "SQUARE"},
+                    });
             }
         }
 
@@ -301,9 +352,13 @@ class LocalHost extends BaseModel {
         for (let x = -2; x <= 2; x++) {
             for (let y = -1; y <= 1; y++) {
                 const bridgeId = this.popNextId();
-                this.gameState.poolsByComponentName.positionComponents[bridgeId] = {x: 50 * x, y: y * 50};
-                this.gameState.poolsByComponentName.sizeComponents[bridgeId] = {size: 50};
-                this.gameState.poolsByComponentName.drawableComponents[bridgeId] = {color: "maroon", shape: "SQUARE"};
+                this.setEntityComponents(
+                    bridgeId,
+                    {
+                        positionComponent: {x: 50 * x, y: y * 50},
+                        sizeComponent: {size: 50},
+                        drawableComponent: {color: "maroon", shape: "SQUARE"},
+                    });
             }
         }
 
@@ -318,9 +373,13 @@ class LocalHost extends BaseModel {
                     continue;
                 }
                 const wallId = this.popNextId();
-                this.gameState.poolsByComponentName.positionComponents[wallId] = {x: 50 * x, y: y * 50};
-                this.gameState.poolsByComponentName.sizeComponents[wallId] = {size: 50};
-                this.gameState.poolsByComponentName.drawableComponents[wallId] = {color: "brown", shape: "SQUARE"};
+                this.setEntityComponents(
+                    wallId,
+                    {
+                        positionComponent: {x: 50 * x, y: y * 50},
+                        sizeComponent: {size: 50},
+                        drawableComponent: {color: "brown", shape: "SQUARE"},
+                    });
             }
         }
 
@@ -339,10 +398,14 @@ class LocalHost extends BaseModel {
 
         // city
         const workshop = this.popNextId();
-        this.gameState.poolsByComponentName.positionComponents[workshop] = {x: 10 * 50, y: -5 * 50};
-        this.gameState.poolsByComponentName.sizeComponents[workshop] = {size: 150};
-        this.gameState.poolsByComponentName.drawableComponents[workshop] = {color: "beige", shape: "SQUARE", label: "Workshop"};
-        this.gameState.poolsByComponentName.usableComponents[workshop] = {behavior: "WORKSHOP"};
+        this.setEntityComponents(
+            workshop,
+            {
+                positionComponent: {x: 10 * 50, y: -5 * 50},
+                sizeComponent: {size: 150},
+                drawableComponent: {color: "beige", shape: "SQUARE", label: "Workshop"},
+                usableComponent: {behavior: "WORKSHOP"},
+            });
 
         // wilderness
         this.makePlot(-150, 150, 150);
@@ -504,9 +567,9 @@ class LocalClient extends BaseModel {
 		ctx.fillRect( 0 , 0, canvas.width, canvas.height);
 
         const entityQuery =
-            /** @type {Map<number, [DrawableComponent, PositionComponent, SizeComponent]>} */
-            (this.query(["drawableComponents", "positionComponents", "sizeComponents"]));
-        for (const [entityId, [drawableComponent, positionComponent, sizeComponent]] of entityQuery) {
+            /** @type {Map<number, {drawableComponent: DrawableComponent, positionComponent: PositionComponent, sizeComponent: SizeComponent}>} */
+            (this.query(["drawableComponent", "positionComponent", "sizeComponent"]));
+        for (const [entityId, {drawableComponent, positionComponent, sizeComponent}] of entityQuery) {
             const cameraPositionComponent = !!this.cameraId ? this.gameState.poolsByComponentName.positionComponents[this.cameraId] : undefined;
             var screenX;
             var screenY;
@@ -518,11 +581,7 @@ class LocalClient extends BaseModel {
                 screenY = (canvas.height / 2) + (cameraPositionComponent.y - positionComponent.y) / scale;
             }
 
-            var age;
-            if (this.gameState.poolsByComponentName.ageableComponents[entityId]) {
-                age = this.gameState.poolsByComponentName.ageableComponents[entityId].age;
-            }
-
+            const age = this.gameState.poolsByComponentName.ageableComponents[entityId]?.age;
             this.drawEntity(
                 drawableComponent,
                 ctx,
@@ -547,10 +606,7 @@ class LocalClient extends BaseModel {
             // draw a background square to hold the entity.
             this.drawEntity(
                 {color: "#ffffff", shape: "CIRCLE", label}, ctx, itemX, itemY, size);
-            var age;
-            if (this.gameState.poolsByComponentName.ageableComponents[playerInventory[i]]) {
-                age = this.gameState.poolsByComponentName.ageableComponents[playerInventory[i]].age;
-            }
+            const age = this.gameState.poolsByComponentName.ageableComponents[playerInventory[i]]?.age;
             this.drawEntity(
                     this.gameState.poolsByComponentName.drawableComponents[playerInventory[i]],
                     ctx, itemX, itemY, size/2, age);
@@ -668,8 +724,8 @@ class LocalClient extends BaseModel {
         if (!this.playerId) {
             return;
         }
-        const entityQuery = /** @type {Map<number, [PositionComponent, SizeComponent]>} */ (this.query(["positionComponents", "sizeComponents"]));
-        for (const [entityId, [positionComponent, sizeComponent]] of entityQuery) {
+        const entityQuery = /** @type {Map<number, {positionComponent: PositionComponent, sizeComponent: SizeComponent}>} */ (this.query(["positionComponent", "sizeComponent"]));
+        for (const [entityId, {positionComponent, sizeComponent}] of entityQuery) {
             if (Math.abs(x - positionComponent.x) <= sizeComponent.size / 2 && Math.abs(y - positionComponent.y) <= sizeComponent.size / 2) {
                 this.host.handlePacket(this, {
                     gameEvent: {
@@ -704,9 +760,9 @@ class LocalClient extends BaseModel {
         }
 
         const entityQuery =
-            /** @type {Map<number, [PositionComponent, SizeComponent]>} */
-            (this.query(["positionComponents", "sizeComponents"]));
-        for (const [entityId, [positionComponent, sizeComponent]] of entityQuery) {
+            /** @type {Map<number, {positionComponent: PositionComponent, sizeComponent: SizeComponent}>} */
+            (this.query(["positionComponent", "sizeComponent"]));
+        for (const [entityId, {positionComponent, sizeComponent}] of entityQuery) {
             if (entityId === this.playerId) {
                 // can't collect yourself, or else you can't build yourself
                 continue;
