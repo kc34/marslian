@@ -33,8 +33,6 @@ class Client {
  * @property {number} frameCount
  * @property {FullComponentPool} poolsByComponentName
  * @property {Object<number, boolean>} entityIds
- * @property {number} cornCount
- * @property {number} cornSeeds
  * @property {Object<number, Array<number>>} playerInventories
  */
 
@@ -47,8 +45,6 @@ class BaseModel {
         frameCount: 0,
         poolsByComponentName: FullComponentPools.newComponentPool(),
         entityIds: {},
-        cornCount: 5,
-        cornSeeds: 5,
         playerInventories: {},
     }
     TIME_STEP = 1 / 60.0
@@ -162,7 +158,7 @@ class BaseModel {
         this.gameState.entityIds[treeId] = true;
         this.gameState.poolsByComponentName.positionComponents[treeId] = {x: x, y: y};
         this.gameState.poolsByComponentName.sizeComponents[treeId] = {size: size};
-        this.gameState.poolsByComponentName.drawableComponents[treeId] = {color: "#832a2a", shape: "TREE"};
+        this.gameState.poolsByComponentName.drawableComponents[treeId] = {color: "brown", shape: "TREE"};
         this.gameState.poolsByComponentName.treeComponents[treeId] = {age: 0};
     }
 
@@ -195,13 +191,19 @@ class BaseModel {
             if (this.gameState.poolsByComponentName.plotComponents[targetId]) {
                 const plotComponent = this.gameState.poolsByComponentName.plotComponents[targetId];
                 if (plotComponent.age > 10) {
-                    this.gameState.cornCount += 1;
+                    const cornId = this.getNextId();
+                    this.gameState.poolsByComponentName.sizeComponents[cornId] = {size: this.gameState.poolsByComponentName.sizeComponents[targetId].size};
+                    this.gameState.poolsByComponentName.drawableComponents[cornId] = {color: "yellow", shape: "CIRCLE"};
+                    this.gameState.playerInventories[gameEvent.useEvent.playerId].push(cornId);
                     plotComponent.age = 0;
                 }
             } else if (this.gameState.poolsByComponentName.treeComponents[targetId]) {
                 const treeComponent = this.gameState.poolsByComponentName.treeComponents[targetId];
                 if (treeComponent.age > 10) {
-                    this.gameState.cornCount += 1;
+                    const woodId = this.getNextId();
+                    this.gameState.poolsByComponentName.sizeComponents[woodId] = {size: this.gameState.poolsByComponentName.sizeComponents[targetId].size};
+                    this.gameState.poolsByComponentName.drawableComponents[woodId] = {color: "brown", shape: "SQUARE"};
+                    this.gameState.playerInventories[gameEvent.useEvent.playerId].push(woodId);
                     treeComponent.age = 0;
                 }
             }
@@ -251,9 +253,6 @@ class LocalHost extends BaseModel {
         // make a river
         for (let x = -1; x <= 1; x++) {
             for (let y = -25; y <= 25; y++) {
-                if (y >= -1 && y <= 1) {
-                    continue; // draw a bridge here
-                }
                 const waterId = this.getNextId();
                 this.gameState.entityIds[waterId] = true;
                 this.gameState.poolsByComponentName.positionComponents[waterId] = {x: 50 * x, y: y * 50};
@@ -265,7 +264,7 @@ class LocalHost extends BaseModel {
         // make a street
         for (let x = -25; x <= 25; x++) {
             for (let y = -1; y <= 1; y++) {
-                if (x >= -1 && x <= -1) {
+                if (x >= -2 && x <= 2) {
                     continue; // draw a bridge here
                 }
                 const roadId = this.getNextId();
@@ -283,7 +282,7 @@ class LocalHost extends BaseModel {
                 this.gameState.entityIds[bridgeId] = true;
                 this.gameState.poolsByComponentName.positionComponents[bridgeId] = {x: 50 * x, y: y * 50};
                 this.gameState.poolsByComponentName.sizeComponents[bridgeId] = {size: 50};
-                this.gameState.poolsByComponentName.drawableComponents[bridgeId] = {color: "brown", shape: "SQUARE"};
+                this.gameState.poolsByComponentName.drawableComponents[bridgeId] = {color: "maroon", shape: "SQUARE"};
             }
         }
 
@@ -301,19 +300,19 @@ class LocalHost extends BaseModel {
                 this.gameState.entityIds[wallId] = true;
                 this.gameState.poolsByComponentName.positionComponents[wallId] = {x: 50 * x, y: y * 50};
                 this.gameState.poolsByComponentName.sizeComponents[wallId] = {size: 50};
-                this.gameState.poolsByComponentName.drawableComponents[wallId] = {color: "beige", shape: "SQUARE"};
+                this.gameState.poolsByComponentName.drawableComponents[wallId] = {color: "brown", shape: "SQUARE"};
             }
         }
 
-        for (let x = -16; x <= -4; x++) {
-            for (let y = -18; y >= -22; y -= 2) {
+        for (let x = -11; x <= -9; x++) {
+            for (let y = -18; y >= -20; y -= 2) {
                 this.makePlot(x * 50, y * 50);
             }
         }
 
-        for (let x = -20; x <= -18; x++) {
-            for (let y = -18; y >= -22; y -= 2) {
-                this.makeTree(x * 50, y * 50);
+        for (let x = -28; x <= -20; x += 4) {
+            for (let y = -14; y <= -6; y += 4) {
+                this.makeTree(x * 50, y * 50, 100);
             }
         }
 
@@ -327,6 +326,7 @@ class LocalHost extends BaseModel {
 
         // wilderness
         this.makePlot(-150, 150, 150);
+        this.makeTree(-350, 150, 150);
     }
 
     tick() {
@@ -514,15 +514,6 @@ class LocalClient extends BaseModel {
                 age);
         }
 
-        const cornCountElement = document.getElementById("corn-count");
-        if (!!cornCountElement && cornCountElement.textContent != this.gameState.cornCount.toString()) {
-            cornCountElement.textContent = this.gameState.cornCount.toString();
-        }
-        const cornSeedCountElement = document.getElementById("corn-seed-count");
-        if (!!cornSeedCountElement && cornSeedCountElement.textContent != this.gameState.cornSeeds.toString()) {
-            cornSeedCountElement.textContent = this.gameState.cornSeeds.toString();
-        }
-
         const playerInventory = this.gameState.playerInventories[this.playerId];
         for (let i = 0; i < playerInventory.length; i++) {
             let itemX = canvas.width - 200 - ((playerInventory.length - 1) * 100) + (i * 100) + 50;
@@ -612,13 +603,12 @@ class LocalClient extends BaseModel {
     }
 
     /**
-     * Handles when a player left-clicks (i.e. places inventory item, or interacts with entity.)
-     * 
      * @param {MouseEvent} clickEvent
+     * @returns {[number, number]?} 
      */
-    clickHandler(clickEvent) {
+    #translateClick(clickEvent) {
         if (!this.playerId) {
-            return;
+            return null;
         }
         // first, try to determine where the user is clicking.
         var x;
@@ -631,21 +621,37 @@ class LocalClient extends BaseModel {
             x = clickEvent.offsetX - window.innerWidth / 2 + cameraPositionComponent.x
             y = window.innerHeight / 2 + cameraPositionComponent.y - clickEvent.offsetY
         }
-        
         // Reject clicks too far away from player.
         const playerPositionComponent = this.gameState.poolsByComponentName.positionComponents[this.playerId];
         if (!playerPositionComponent) {
-            return;
+            return null;
         }
         if (Math.abs(x - playerPositionComponent.x) > 200 || Math.abs(y - playerPositionComponent.y) > 200) {
-            return;
+            return null;
         }
 
         if (this.pressedKeys.has("Shift".toUpperCase())) {
             x = Math.round(x / 25) * 25;
             y = Math.round(y / 25) * 25;
         }
+        return [x, y];
+    }
 
+    /**
+     * Handles when a player left-clicks (i.e. places inventory item, or interacts with entity.)
+     * 
+     * @param {MouseEvent} clickEvent
+     */
+    clickHandler(clickEvent) {
+        const click = this.#translateClick(clickEvent);
+        if (!click) {
+            return;
+        }
+        const [x, y] = click;
+
+        if (!this.playerId) {
+            return;
+        }
         const entityQuery = /** @type {Map<number, [PositionComponent, SizeComponent]>} */ (this.query(["positionComponents", "sizeComponents"]));
         for (const [entityId, [positionComponent, sizeComponent]] of entityQuery) {
             if (Math.abs(x - positionComponent.x) <= sizeComponent.size / 2 && Math.abs(y - positionComponent.y) <= sizeComponent.size / 2) {
@@ -671,33 +677,13 @@ class LocalClient extends BaseModel {
      * @param {MouseEvent} clickEvent
      */
     auxClickHandler(clickEvent) {
-        console.log("aux click!");
-        if (!this.playerId) {
+        const click = this.#translateClick(clickEvent);
+        if (!click) {
             return;
         }
-        // first, try to determine where the user is clicking.
-        var x;
-        var y;
-        const cameraPositionComponent = this.cameraId ? this.gameState.poolsByComponentName.positionComponents[this.cameraId] : undefined;
-        if (!cameraPositionComponent) {
-            x = clickEvent.offsetX;
-            y = clickEvent.offsetY;
-        } else {
-            x = clickEvent.offsetX - window.innerWidth / 2 + cameraPositionComponent.x
-            y = window.innerHeight / 2 + cameraPositionComponent.y - clickEvent.offsetY
-        }
+        const [x, y] = click;
 
-        if (this.pressedKeys.has("Shift".toUpperCase())) {
-            x = Math.round(x / 25) * 25;
-            y = Math.round(y / 25) * 25
-        }
-        
-        // Reject clicks too far away from player.
-        const playerPositionComponent = this.gameState.poolsByComponentName.positionComponents[this.playerId];
-        if (!playerPositionComponent) {
-            return;
-        }
-        if (Math.abs(x - playerPositionComponent.x) > 200 || Math.abs(y - playerPositionComponent.y) > 200) {
+        if (!this.playerId) {
             return;
         }
 
@@ -722,6 +708,9 @@ class LocalClient extends BaseModel {
             return;
         }
         const playerInventory = this.gameState.playerInventories[this.playerId];
+        if (playerInventory.length == 0) {
+            return;
+        }
 
         if (wheelEvent.deltaY > 0) {
             playerInventory.unshift(playerInventory.pop());
