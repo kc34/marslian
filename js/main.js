@@ -94,7 +94,6 @@ class BaseModel {
     }
 
     /**
-     * 
      * @param {number} entityId 
      * @param {EntityComponents} entityComponents 
      */
@@ -102,6 +101,18 @@ class BaseModel {
         for (const [componentName, component] of Object.entries(entityComponents)) {
             this.gameState.poolsByComponentName[componentName + 's'][entityId] = component;
         }
+    }
+
+    /**
+     * @param {number} entityId 
+     * @returns {EntityComponents} 
+     */
+    getEntityComponents(entityId) {
+        const entityComponents = {}
+        for (const [componentNamePlural, componentPool] of Object.entries(this.gameState.poolsByComponentName)) {
+            entityComponents[componentNamePlural.slice(0, -1)] = componentPool[entityId];
+        }
+        return entityComponents;
     }
 
     tick() {
@@ -143,8 +154,25 @@ class BaseModel {
         }
 
         // AgeableSystem
-        for (const [_, ageableComponent] of Object.entries(this.gameState.poolsByComponentName.ageableComponents)) {
+        const ageableQuery = this.query(["ageableComponent"]);
+        for (const [entityId, {ageableComponent}] of ageableQuery) {
             ageableComponent.age += this.TIME_STEP;
+
+            if (this.getEntityComponents(entityId).drawableComponent?.label === "Slime Spawner") {
+                if (Math.floor(ageableComponent.age / 5) > Math.floor((ageableComponent.age - this.TIME_STEP) / 5)) {
+                    const seed = Math.floor(ageableComponent.age / 5);
+                    const dx = Math.sin(seed * seed);
+                    const dy = Math.cos(seed * seed);
+                    const slimeId = this.popNextId();
+                    this.setEntityComponents(
+                        slimeId,
+                        {
+                            positionComponent: {x: this.getEntityComponents(entityId).positionComponent.x + dx * 250, y: this.getEntityComponents(entityId).positionComponent.y + dy * 250},
+                            sizeComponent: {size: 25},
+                            drawableComponent: {color: "lightgreen", shape: "CIRCLE", label: "slime"},
+                        });
+                }
+            }
         }
     }
 
@@ -201,6 +229,10 @@ class BaseModel {
                 playerPositionComponent.y = gameEvent.velocityChangeEvent.y;
             }
         } else if (!!gameEvent.newPlayerEvent) {
+            // Server reserved Player IDs, but hosts might not, so reserve it again:
+            this.gameState.entityIds[gameEvent.newPlayerEvent.playerId] = true;
+            this.gameState.entityIds[gameEvent.newPlayerEvent.cameraId] = true;
+            // newPlayerEvent.playerId
             this.setEntityComponents(
                 gameEvent.newPlayerEvent.playerId,
                 {
@@ -307,7 +339,7 @@ class BaseModel {
                         },
                         drawableComponent: {color: "black", shape: "CIRCLE", label: "pew!"},
                     });
-            } else if (this.gameState.poolsByComponentName.buildableComponents[gameEvent.buildEvent.itemId]?.behavior === "BUILD") {
+            } else if (this.gameState.poolsByComponentName.buildableComponents[gameEvent.buildEvent.itemId]?.behavior === "BUILD" || this.gameState.poolsByComponentName.buildableComponents[gameEvent.buildEvent.itemId]?.behavior === undefined) {
                 // delete from player inventory, and put into world
                 this.gameState.playerInventories[gameEvent.buildEvent.playerId].splice(this.gameState.playerInventories[gameEvent.buildEvent.playerId].indexOf(gameEvent.buildEvent.itemId), 1);
                 this.gameState.poolsByComponentName.positionComponents[gameEvent.buildEvent.itemId] = {x: gameEvent.buildEvent.x, y: gameEvent.buildEvent.y};
@@ -436,9 +468,21 @@ class LocalHost extends BaseModel {
                 buildableComponent: {behavior: "BUILD"},
             });
 
+
         // wilderness
         this.makePlot(-150, 150, 150);
         this.makeTree(-350, 150, 150);
+
+        const slimeSpawner = this.popNextId();
+        this.setEntityComponents(
+            slimeSpawner,
+            {
+                positionComponent: {x: -10 * 50, y: 15 * 50},
+                sizeComponent: {size: 150},
+                drawableComponent: {color: "lightgreen", shape: "CIRCLE", label: "Slime Spawner"},
+                ageableComponent: {age: 0},
+                buildableComponent: {behavior: "BUILD"},
+            });
     }
 
     tick() {
@@ -818,7 +862,6 @@ class LocalClient extends BaseModel {
     /** @param {KeyboardEvent} keyEvent */
     keydownHandler(keyEvent) {
         const key = keyEvent.key.toUpperCase();
-        console.log(key);
         this.pressedKeys.add(key);
     }
 
