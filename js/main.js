@@ -54,8 +54,15 @@ class BaseModel {
     /** @type {GameEvent[]} */
     events = [];
     
-    getNextId() {
-        const nextId = Object.keys(this.gameState.entityIds).length;
+    /** Reserves and returns the next Entity ID. */
+    popNextId() {
+        var highestId = -1;
+        for (const id in Object.keys(this.gameState.entityIds)) {
+            if (parseInt(id) > highestId) {
+                highestId = parseInt(id);
+            }
+        }
+        const nextId = highestId + 1;
         this.gameState.entityIds[nextId] = true;
         return nextId;
     }
@@ -136,8 +143,7 @@ class BaseModel {
      * @param {number} [size=50]
      */
     makePlot(x, y, size = 50) {
-        const plotId = this.getNextId();
-        this.gameState.entityIds[plotId] = true;
+        const plotId = this.popNextId();
         this.gameState.poolsByComponentName.positionComponents[plotId] = {x: x, y: y};
         this.gameState.poolsByComponentName.sizeComponents[plotId] = {size: size};
         this.gameState.poolsByComponentName.drawableComponents[plotId] = {color: "#832a2a", shape: "PLOT", secondColor: "yellow"};
@@ -151,8 +157,7 @@ class BaseModel {
      * @param {number} [size=50]
      */
     makeTree(x, y, size = 50) {
-        const treeId = this.getNextId();
-        this.gameState.entityIds[treeId] = true;
+        const treeId = this.popNextId();
         this.gameState.poolsByComponentName.positionComponents[treeId] = {x: x, y: y};
         this.gameState.poolsByComponentName.sizeComponents[treeId] = {size: size};
         this.gameState.poolsByComponentName.drawableComponents[treeId] = {color: "brown", shape: "TREE"};
@@ -175,12 +180,10 @@ class BaseModel {
                 playerPositionComponent.y = gameEvent.velocityChangeEvent.y;
             }
         } else if (!!gameEvent.newPlayerEvent) {
-            this.gameState.entityIds[gameEvent.newPlayerEvent.playerId] = true;
             this.gameState.poolsByComponentName.positionComponents[gameEvent.newPlayerEvent.playerId] = {x: gameEvent.newPlayerEvent.x, y: gameEvent.newPlayerEvent.y};
             this.gameState.poolsByComponentName.sizeComponents[gameEvent.newPlayerEvent.playerId] = {size: 50};
             this.gameState.poolsByComponentName.velocityComponents[gameEvent.newPlayerEvent.playerId] = {x: 0, y: 0}
             this.gameState.poolsByComponentName.drawableComponents[gameEvent.newPlayerEvent.playerId] = {color: gameEvent.newPlayerEvent.color, label: gameEvent.newPlayerEvent.label, shape: "CIRCLE"};
-            this.gameState.entityIds[gameEvent.newPlayerEvent.cameraId] = true;
             this.gameState.poolsByComponentName.positionComponents[gameEvent.newPlayerEvent.cameraId] = {x: gameEvent.newPlayerEvent.cameraX, y: gameEvent.newPlayerEvent.cameraY};
             this.gameState.poolsByComponentName.followPlayerComponents[gameEvent.newPlayerEvent.cameraId] = {maxDistanceFromPlayer: 150, followingId: gameEvent.newPlayerEvent.playerId};
             this.gameState.playerInventories[gameEvent.newPlayerEvent.playerId] = [-1];
@@ -189,7 +192,7 @@ class BaseModel {
             if (this.gameState.poolsByComponentName.usableComponents[targetId]?.behavior == "PLOT") {
                 const ageableComponent = this.gameState.poolsByComponentName.ageableComponents[targetId];
                 if (ageableComponent.age > 10) {
-                    const cornId = this.getNextId();
+                    const cornId = this.popNextId();
                     this.gameState.poolsByComponentName.sizeComponents[cornId] = {size: this.gameState.poolsByComponentName.sizeComponents[targetId].size};
                     this.gameState.poolsByComponentName.drawableComponents[cornId] = {color: "yellow", shape: "CIRCLE"};
                     this.gameState.playerInventories[gameEvent.useEvent.playerId].push(cornId);
@@ -198,7 +201,7 @@ class BaseModel {
             } else if (this.gameState.poolsByComponentName.usableComponents[targetId]?.behavior == "TREE") {
                 const ageableComponent = this.gameState.poolsByComponentName.ageableComponents[targetId];
                 if (ageableComponent.age > 10) {
-                    const woodId = this.getNextId();
+                    const woodId = this.popNextId();
                     // trees are big so we make the wood half as big
                     this.gameState.poolsByComponentName.sizeComponents[woodId] = {size: this.gameState.poolsByComponentName.sizeComponents[targetId].size / 2};
                     this.gameState.poolsByComponentName.drawableComponents[woodId] = {color: "brown", shape: "SQUARE"};
@@ -206,7 +209,7 @@ class BaseModel {
                     ageableComponent.age = 0;
                 }
             } else if (this.gameState.poolsByComponentName.usableComponents[targetId]?.behavior == "WORKSHOP") {
-                const bowId = this.getNextId();
+                const bowId = this.popNextId();
                 this.gameState.poolsByComponentName.drawableComponents[bowId] = {color: "black", shape: "SQUARE", label: "bow"};
                 this.gameState.poolsByComponentName.buildableComponents[bowId] = {behavior: "BOW"}
                 this.gameState.playerInventories[gameEvent.useEvent.playerId].push(bowId);
@@ -226,7 +229,7 @@ class BaseModel {
             
             // if bow, we don't want to actually build it
             if (this.gameState.poolsByComponentName.buildableComponents[gameEvent.buildEvent.itemId]?.behavior == "BOW") {
-                const arrow = this.getNextId();
+                const arrow = this.popNextId();
                 const playerPositionComponent = this.gameState.poolsByComponentName.positionComponents[gameEvent.buildEvent.playerId];
                 this.gameState.poolsByComponentName.positionComponents[arrow] = {x: playerPositionComponent.x, y: playerPositionComponent.y}
                 const distance = Math.pow(Math.pow(gameEvent.buildEvent.x - playerPositionComponent.x, 2) + Math.pow(gameEvent.buildEvent.y - playerPositionComponent.y, 2), 0.5); // used for norming
@@ -274,8 +277,7 @@ class LocalHost extends BaseModel {
         // make a river
         for (let x = -1; x <= 1; x++) {
             for (let y = -25; y <= 25; y++) {
-                const waterId = this.getNextId();
-                this.gameState.entityIds[waterId] = true;
+                const waterId = this.popNextId();
                 this.gameState.poolsByComponentName.positionComponents[waterId] = {x: 50 * x, y: y * 50};
                 this.gameState.poolsByComponentName.sizeComponents[waterId] = {size: 50};
                 this.gameState.poolsByComponentName.drawableComponents[waterId] = {color: "#0080ff", shape: "SQUARE"};
@@ -288,8 +290,7 @@ class LocalHost extends BaseModel {
                 if (x >= -2 && x <= 2) {
                     continue; // draw a bridge here
                 }
-                const roadId = this.getNextId();
-                this.gameState.entityIds[roadId] = true;
+                const roadId = this.popNextId();
                 this.gameState.poolsByComponentName.positionComponents[roadId] = {x: 50 * x, y: y * 50};
                 this.gameState.poolsByComponentName.sizeComponents[roadId] = {size: 50};
                 this.gameState.poolsByComponentName.drawableComponents[roadId] = {color: "gray", shape: "SQUARE"};
@@ -299,8 +300,7 @@ class LocalHost extends BaseModel {
         // bridge
         for (let x = -2; x <= 2; x++) {
             for (let y = -1; y <= 1; y++) {
-                const bridgeId = this.getNextId();
-                this.gameState.entityIds[bridgeId] = true;
+                const bridgeId = this.popNextId();
                 this.gameState.poolsByComponentName.positionComponents[bridgeId] = {x: 50 * x, y: y * 50};
                 this.gameState.poolsByComponentName.sizeComponents[bridgeId] = {size: 50};
                 this.gameState.poolsByComponentName.drawableComponents[bridgeId] = {color: "maroon", shape: "SQUARE"};
@@ -317,8 +317,7 @@ class LocalHost extends BaseModel {
                     // leave a space for the door
                     continue;
                 }
-                const wallId = this.getNextId();
-                this.gameState.entityIds[wallId] = true;
+                const wallId = this.popNextId();
                 this.gameState.poolsByComponentName.positionComponents[wallId] = {x: 50 * x, y: y * 50};
                 this.gameState.poolsByComponentName.sizeComponents[wallId] = {size: 50};
                 this.gameState.poolsByComponentName.drawableComponents[wallId] = {color: "brown", shape: "SQUARE"};
@@ -339,8 +338,7 @@ class LocalHost extends BaseModel {
 
 
         // city
-        const workshop = this.getNextId();
-        this.gameState.entityIds[workshop] = true;
+        const workshop = this.popNextId();
         this.gameState.poolsByComponentName.positionComponents[workshop] = {x: 10 * 50, y: -5 * 50};
         this.gameState.poolsByComponentName.sizeComponents[workshop] = {size: 150};
         this.gameState.poolsByComponentName.drawableComponents[workshop] = {color: "beige", shape: "SQUARE", label: "Workshop"};
@@ -363,11 +361,11 @@ class LocalHost extends BaseModel {
     handlePacket(client, packet) {
         if (packet.playerJoinPacket) {
             const playerJoinPacket = packet.playerJoinPacket;
-            const playerId = this.getNextId();
+            const playerId = this.popNextId();
             const x = Math.random() * 250 - 125 - 500;
             const y = Math.random() * 250 - 125 - 500;
 
-            const cameraId = this.getNextId();
+            const cameraId = this.popNextId();
 
             var newPlayerEvent;
             newPlayerEvent = {
