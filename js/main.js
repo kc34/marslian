@@ -163,6 +163,7 @@ class BaseModel {
                 drawableComponent: {color: "#832a2a", shape: "PLOT", secondColor: "yellow"},
                 ageableComponent: {age: 0},
                 usableComponent: {behavior: "PLOT"},
+                buildableComponent: {behavior: "BUILD"},
             });
     }
 
@@ -181,6 +182,7 @@ class BaseModel {
                 drawableComponent: {color: "brown", shape: "TREE"},
                 ageableComponent: {age: 0},
                 usableComponent: {behavior: "TREE"},
+                buildableComponent: {behavior: "BUILD"},
             });
     }
 
@@ -206,16 +208,29 @@ class BaseModel {
                     sizeComponent: {size: 50},
                     velocityComponent: {x: 0, y: 0},
                     drawableComponent: {color: gameEvent.newPlayerEvent.color, label: gameEvent.newPlayerEvent.label, shape: "CIRCLE"},
+                    buildableComponent: {behavior: "BUILD"},
                 });
             this.setEntityComponents(
                 gameEvent.newPlayerEvent.cameraId,
                 {
                     positionComponent: {x: gameEvent.newPlayerEvent.cameraX, y: gameEvent.newPlayerEvent.cameraY},
                     followPlayerComponent: {maxDistanceFromPlayer: 150, followingId: gameEvent.newPlayerEvent.playerId},
+                    buildableComponent: {behavior: "BUILD"},
                 });
             this.gameState.playerInventories[gameEvent.newPlayerEvent.playerId] = [-1];
         } else if (!!gameEvent.useEvent) {
+            const playerId = gameEvent.useEvent.playerId;
             const targetId = gameEvent.useEvent.targetId;
+            // Reject clicks too far away from player.
+            const playerPositionComponent = this.gameState.poolsByComponentName.positionComponents[playerId];
+            const targetPositionComponent = this.gameState.poolsByComponentName.positionComponents[targetId];
+            if (!playerPositionComponent) {
+                return;
+            }
+            if (Math.abs(targetPositionComponent.x - playerPositionComponent.x) > 200 || Math.abs(targetPositionComponent.y - playerPositionComponent.y) > 200) {
+                return;
+            }
+
             if (this.gameState.poolsByComponentName.usableComponents[targetId]?.behavior == "PLOT") {
                 const ageableComponent = this.gameState.poolsByComponentName.ageableComponents[targetId];
                 if (ageableComponent.age > 10) {
@@ -225,6 +240,7 @@ class BaseModel {
                         {
                             sizeComponent: {size: this.gameState.poolsByComponentName.sizeComponents[targetId].size},
                             drawableComponent: {color: "yellow", shape: "CIRCLE"},
+                            buildableComponent: {behavior: "BUILD"},
                         });
                     this.gameState.playerInventories[gameEvent.useEvent.playerId].push(cornId);
                     ageableComponent.age = 0;
@@ -239,6 +255,7 @@ class BaseModel {
                         {
                             sizeComponent: {size: this.gameState.poolsByComponentName.sizeComponents[targetId].size / 2},
                             drawableComponent: {color: "brown", shape: "SQUARE"},
+                            buildableComponent: {behavior: "BUILD"},
                         });
                     this.gameState.playerInventories[gameEvent.useEvent.playerId].push(woodId);
                     ageableComponent.age = 0;
@@ -254,15 +271,23 @@ class BaseModel {
                 this.gameState.playerInventories[gameEvent.useEvent.playerId].push(bowId);
             }
         } else if (!!gameEvent.collectEvent) {
-            console.log("collecting");
-            console.log(gameEvent.collectEvent);
-            // remove entity from world, and put in player inventory
-            delete this.gameState.poolsByComponentName.positionComponents[gameEvent.collectEvent.itemId];
-            if (!this.gameState.playerInventories[gameEvent.collectEvent.playerId]) {
-                this.gameState.playerInventories[gameEvent.collectEvent.playerId] = [-1];
+            const playerId = gameEvent.collectEvent.playerId;
+            const itemId = gameEvent.collectEvent.itemId;
+            // Reject clicks too far away from player.
+            const playerPositionComponent = this.gameState.poolsByComponentName.positionComponents[playerId];
+            const targetPositionComponent = this.gameState.poolsByComponentName.positionComponents[itemId];
+            if (!playerPositionComponent) {
+                return;
             }
-            this.gameState.playerInventories[gameEvent.collectEvent.playerId].push(gameEvent.collectEvent.itemId);
-            console.log(this.gameState.playerInventories[gameEvent.collectEvent.playerId]);
+            if (Math.abs(targetPositionComponent.x - playerPositionComponent.x) > 200 || Math.abs(targetPositionComponent.y - playerPositionComponent.y) > 200) {
+                return;
+            }
+            // remove entity from world, and put in player inventory
+            delete this.gameState.poolsByComponentName.positionComponents[itemId];
+            if (!this.gameState.playerInventories[playerId]) {
+                this.gameState.playerInventories[playerId] = [-1];
+            }
+            this.gameState.playerInventories[playerId].push(itemId);
         } else if (!!gameEvent.buildEvent) {
             // for now, use the buildEvent as the general left-click
             
@@ -282,12 +307,11 @@ class BaseModel {
                         },
                         drawableComponent: {color: "black", shape: "CIRCLE", label: "pew!"},
                     });
-                return;
+            } else if (this.gameState.poolsByComponentName.buildableComponents[gameEvent.buildEvent.itemId]?.behavior === "BUILD") {
+                // delete from player inventory, and put into world
+                this.gameState.playerInventories[gameEvent.buildEvent.playerId].splice(this.gameState.playerInventories[gameEvent.buildEvent.playerId].indexOf(gameEvent.buildEvent.itemId), 1);
+                this.gameState.poolsByComponentName.positionComponents[gameEvent.buildEvent.itemId] = {x: gameEvent.buildEvent.x, y: gameEvent.buildEvent.y};
             }
-
-            // delete from player inventory, and put into world
-            this.gameState.playerInventories[gameEvent.buildEvent.playerId].splice(this.gameState.playerInventories[gameEvent.buildEvent.playerId].indexOf(gameEvent.buildEvent.itemId), 1);
-            this.gameState.poolsByComponentName.positionComponents[gameEvent.buildEvent.itemId] = {x: gameEvent.buildEvent.x, y: gameEvent.buildEvent.y};
         } else {
             console.log("unrecognized game event!!");
         }
@@ -327,6 +351,7 @@ class LocalHost extends BaseModel {
                         positionComponent: {x: 50 * x, y: y * 50},
                         sizeComponent: {size: 50},
                         drawableComponent: {color: "#0080ff", shape: "SQUARE"},
+                        buildableComponent: {behavior: "BUILD"},
                     });
             }
         }
@@ -344,6 +369,7 @@ class LocalHost extends BaseModel {
                         positionComponent: {x: 50 * x, y: y * 50},
                         sizeComponent: {size: 50},
                         drawableComponent: {color: "gray", shape: "SQUARE"},
+                        buildableComponent: {behavior: "BUILD"},
                     });
             }
         }
@@ -358,6 +384,7 @@ class LocalHost extends BaseModel {
                         positionComponent: {x: 50 * x, y: y * 50},
                         sizeComponent: {size: 50},
                         drawableComponent: {color: "maroon", shape: "SQUARE"},
+                        buildableComponent: {behavior: "BUILD"},
                     });
             }
         }
@@ -379,6 +406,7 @@ class LocalHost extends BaseModel {
                         positionComponent: {x: 50 * x, y: y * 50},
                         sizeComponent: {size: 50},
                         drawableComponent: {color: "brown", shape: "SQUARE"},
+                        buildableComponent: {behavior: "BUILD"},
                     });
             }
         }
@@ -405,6 +433,7 @@ class LocalHost extends BaseModel {
                 sizeComponent: {size: 150},
                 drawableComponent: {color: "beige", shape: "SQUARE", label: "Workshop"},
                 usableComponent: {behavior: "WORKSHOP"},
+                buildableComponent: {behavior: "BUILD"},
             });
 
         // wilderness
@@ -693,14 +722,6 @@ class LocalClient extends BaseModel {
             x = clickEvent.offsetX - window.innerWidth / 2 + cameraPositionComponent.x
             y = window.innerHeight / 2 + cameraPositionComponent.y - clickEvent.offsetY
         }
-        // Reject clicks too far away from player.
-        const playerPositionComponent = this.gameState.poolsByComponentName.positionComponents[this.playerId];
-        if (!playerPositionComponent) {
-            return null;
-        }
-        if (Math.abs(x - playerPositionComponent.x) > 200 || Math.abs(y - playerPositionComponent.y) > 200) {
-            return null;
-        }
 
         if (this.pressedKeys.has("Shift".toUpperCase())) {
             x = Math.round(x / 25) * 25;
@@ -724,8 +745,10 @@ class LocalClient extends BaseModel {
         if (!this.playerId) {
             return;
         }
-        const entityQuery = /** @type {Map<number, {positionComponent: PositionComponent, sizeComponent: SizeComponent}>} */ (this.query(["positionComponent", "sizeComponent"]));
-        for (const [entityId, {positionComponent, sizeComponent}] of entityQuery) {
+        const entityQuery =
+        /** @type {Map<number, {positionComponent: PositionComponent, sizeComponent: SizeComponent, usableComponent: UsableComponent}>} */
+        (this.query(["positionComponent", "sizeComponent", "usableComponent"]));
+        for (const [entityId, {positionComponent, sizeComponent, usableComponent}] of entityQuery) {
             if (Math.abs(x - positionComponent.x) <= sizeComponent.size / 2 && Math.abs(y - positionComponent.y) <= sizeComponent.size / 2) {
                 this.host.handlePacket(this, {
                     gameEvent: {

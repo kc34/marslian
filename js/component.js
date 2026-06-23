@@ -63,13 +63,19 @@
  */
 
 /**
+ * Describes what happens if you left-click on this while it is in the world.
+ * 
  * @typedef {Object} UsableComponent
  * @property {"PLOT"|"TREE"|"WORKSHOP"} behavior
  */
 
 /**
+ * Describes what happens if you left-click while this is in your inventory.
+ * 
+ * <p>TODO: Maybe BUILD should be called Place?
+ * 
  * @typedef {Object} BuildableComponent
- * @property {"BOW"} behavior
+ * @property {"BOW"|"BUILD"} behavior
  */
 
 class FullComponentPools {
