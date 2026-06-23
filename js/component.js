@@ -5,12 +5,12 @@
  * @property {Object.<number, VelocityComponent>} velocityComponents
  * @property {Object.<number, DrawableComponent>} drawableComponents
  * @property {Object.<number, FollowPlayerComponent>} followPlayerComponents
- * @property {Object.<number, PlotComponent>} plotComponents
- * @property {Object.<number, TreeComponent>} treeComponents
+ * @property {Object.<number, AgeableComponent>} ageableComponents
+ * @property {Object.<number, UsableComponent>} usableComponents
  */
 
 /**
- * @typedef {"positionComponents"|"sizeComponents"|"velocityComponents"|"drawableComponents"|"followPlayerComponents"|"plotComponents"|"treeComponents"} ComponentName
+ * @typedef {"positionComponents"|"sizeComponents"|"velocityComponents"|"drawableComponents"|"followPlayerComponents"|"ageableComponents"|"usableComponents"} ComponentName
  */
 
 /**
@@ -49,13 +49,13 @@
  */
 
 /**
- * @typedef {Object} PlotComponent
+ * @typedef {Object} AgeableComponent
  * @property {number} age
  */
 
 /**
- * @typedef {Object} TreeComponent
- * @property {number} age
+ * @typedef {Object} UsableComponent
+ * @property {"PLOT"|"TREE"} behavior
  */
 
 class FullComponentPools {
@@ -66,8 +66,8 @@ class FullComponentPools {
             velocityComponents: {},
             drawableComponents: {},
             followPlayerComponents: {},
-            plotComponents: {},
-            treeComponents: {},
+            ageableComponents: {},
+            usableComponents: {},
         }
     }
 }

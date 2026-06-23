@@ -125,12 +125,8 @@ class BaseModel {
         }
 
         // AgeableSystem
-        for (const [_, plotComponents] of Object.entries(this.gameState.poolsByComponentName.plotComponents)) {
-            plotComponents.age += this.TIME_STEP;
-        }
-        // AgeableSystem
-        for (const [_, treeComponents] of Object.entries(this.gameState.poolsByComponentName.treeComponents)) {
-            treeComponents.age += this.TIME_STEP;
+        for (const [_, ageableComponent] of Object.entries(this.gameState.poolsByComponentName.ageableComponents)) {
+            ageableComponent.age += this.TIME_STEP;
         }
     }
 
@@ -145,7 +141,8 @@ class BaseModel {
         this.gameState.poolsByComponentName.positionComponents[plotId] = {x: x, y: y};
         this.gameState.poolsByComponentName.sizeComponents[plotId] = {size: size};
         this.gameState.poolsByComponentName.drawableComponents[plotId] = {color: "#832a2a", shape: "PLOT", secondColor: "yellow"};
-        this.gameState.poolsByComponentName.plotComponents[plotId] = {age: 0};
+        this.gameState.poolsByComponentName.ageableComponents[plotId] = {age: 0};
+        this.gameState.poolsByComponentName.usableComponents[plotId] = {behavior: "PLOT"}
     }
 
     /**
@@ -159,7 +156,8 @@ class BaseModel {
         this.gameState.poolsByComponentName.positionComponents[treeId] = {x: x, y: y};
         this.gameState.poolsByComponentName.sizeComponents[treeId] = {size: size};
         this.gameState.poolsByComponentName.drawableComponents[treeId] = {color: "brown", shape: "TREE"};
-        this.gameState.poolsByComponentName.treeComponents[treeId] = {age: 0};
+        this.gameState.poolsByComponentName.ageableComponents[treeId] = {age: 0};
+        this.gameState.poolsByComponentName.usableComponents[treeId] = {behavior: "TREE"}
     }
 
     /** @param {GameEvent} gameEvent */
@@ -188,23 +186,24 @@ class BaseModel {
             this.gameState.playerInventories[gameEvent.newPlayerEvent.playerId] = [-1];
         } else if (!!gameEvent.useEvent) {
             const targetId = gameEvent.useEvent.targetId;
-            if (this.gameState.poolsByComponentName.plotComponents[targetId]) {
-                const plotComponent = this.gameState.poolsByComponentName.plotComponents[targetId];
-                if (plotComponent.age > 10) {
+            if (this.gameState.poolsByComponentName.usableComponents[targetId]?.behavior == "PLOT") {
+                const ageableComponent = this.gameState.poolsByComponentName.ageableComponents[targetId];
+                if (ageableComponent.age > 10) {
                     const cornId = this.getNextId();
                     this.gameState.poolsByComponentName.sizeComponents[cornId] = {size: this.gameState.poolsByComponentName.sizeComponents[targetId].size};
                     this.gameState.poolsByComponentName.drawableComponents[cornId] = {color: "yellow", shape: "CIRCLE"};
                     this.gameState.playerInventories[gameEvent.useEvent.playerId].push(cornId);
-                    plotComponent.age = 0;
+                    ageableComponent.age = 0;
                 }
-            } else if (this.gameState.poolsByComponentName.treeComponents[targetId]) {
-                const treeComponent = this.gameState.poolsByComponentName.treeComponents[targetId];
-                if (treeComponent.age > 10) {
+            } else if (this.gameState.poolsByComponentName.usableComponents[targetId]?.behavior == "TREE") {
+                const ageableComponent = this.gameState.poolsByComponentName.ageableComponents[targetId];
+                if (ageableComponent.age > 10) {
                     const woodId = this.getNextId();
-                    this.gameState.poolsByComponentName.sizeComponents[woodId] = {size: this.gameState.poolsByComponentName.sizeComponents[targetId].size};
+                    // trees are big so we make the wood half as big
+                    this.gameState.poolsByComponentName.sizeComponents[woodId] = {size: this.gameState.poolsByComponentName.sizeComponents[targetId].size / 2};
                     this.gameState.poolsByComponentName.drawableComponents[woodId] = {color: "brown", shape: "SQUARE"};
                     this.gameState.playerInventories[gameEvent.useEvent.playerId].push(woodId);
-                    treeComponent.age = 0;
+                    ageableComponent.age = 0;
                 }
             }
         } else if (!!gameEvent.collectEvent) {
@@ -318,11 +317,11 @@ class LocalHost extends BaseModel {
 
 
         // city
-        const kitchenId = this.getNextId();
-        this.gameState.entityIds[kitchenId] = true;
-        this.gameState.poolsByComponentName.positionComponents[kitchenId] = {x: 50 * 15, y: 0 * 50};
-        this.gameState.poolsByComponentName.sizeComponents[kitchenId] = {size: 150};
-        this.gameState.poolsByComponentName.drawableComponents[kitchenId] = {color: "beige", shape: "SQUARE", label: "Kitchen"};
+        const workshop = this.getNextId();
+        this.gameState.entityIds[workshop] = true;
+        this.gameState.poolsByComponentName.positionComponents[workshop] = {x: 50 * 15, y: 0 * 50};
+        this.gameState.poolsByComponentName.sizeComponents[workshop] = {size: 150};
+        this.gameState.poolsByComponentName.drawableComponents[workshop] = {color: "beige", shape: "SQUARE", label: "Workshop"};
 
         // wilderness
         this.makePlot(-150, 150, 150);
@@ -499,10 +498,8 @@ class LocalClient extends BaseModel {
             }
 
             var age;
-            if (this.gameState.poolsByComponentName.plotComponents[entityId]) {
-                age = this.gameState.poolsByComponentName.plotComponents[entityId].age;
-            } else if (this.gameState.poolsByComponentName.treeComponents[entityId]) {
-                age = this.gameState.poolsByComponentName.treeComponents[entityId].age;
+            if (this.gameState.poolsByComponentName.ageableComponents[entityId]) {
+                age = this.gameState.poolsByComponentName.ageableComponents[entityId].age;
             }
 
             this.drawEntity(
@@ -530,10 +527,8 @@ class LocalClient extends BaseModel {
             this.drawEntity(
                 {color: "#ffffff", shape: "CIRCLE", label}, ctx, itemX, itemY, size);
             var age;
-            if (this.gameState.poolsByComponentName.plotComponents[playerInventory[i]]) {
-                age = this.gameState.poolsByComponentName.plotComponents[playerInventory[i]].age;
-            } else if (this.gameState.poolsByComponentName.treeComponents[playerInventory[i]]) {
-                age = this.gameState.poolsByComponentName.treeComponents[playerInventory[i]].age;
+            if (this.gameState.poolsByComponentName.ageableComponents[playerInventory[i]]) {
+                age = this.gameState.poolsByComponentName.ageableComponents[playerInventory[i]].age;
             }
             this.drawEntity(
                     this.gameState.poolsByComponentName.drawableComponents[playerInventory[i]],

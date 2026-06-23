@@ -5,6 +5,7 @@
  * @property {MoveEvent=} moveEvent
  * @property {VelocityChangeEvent=} velocityChangeEvent
  * @property {UseEvent=} useEvent
+ * @property {UseAtPointEvent=} useAtPointEvent
  * @property {CollectEvent=} collectEvent
  * @property {BuildEvent=} buildEvent
  */
