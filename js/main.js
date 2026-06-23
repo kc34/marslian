@@ -205,6 +205,11 @@ class BaseModel {
                     this.gameState.playerInventories[gameEvent.useEvent.playerId].push(woodId);
                     ageableComponent.age = 0;
                 }
+            } else if (this.gameState.poolsByComponentName.usableComponents[targetId]?.behavior == "WORKSHOP") {
+                const bowId = this.getNextId();
+                this.gameState.poolsByComponentName.drawableComponents[bowId] = {color: "black", shape: "SQUARE", label: "bow"};
+                this.gameState.poolsByComponentName.buildableComponents[bowId] = {behavior: "BOW"}
+                this.gameState.playerInventories[gameEvent.useEvent.playerId].push(bowId);
             }
         } else if (!!gameEvent.collectEvent) {
             console.log("collecting");
@@ -217,6 +222,23 @@ class BaseModel {
             this.gameState.playerInventories[gameEvent.collectEvent.playerId].push(gameEvent.collectEvent.itemId);
             console.log(this.gameState.playerInventories[gameEvent.collectEvent.playerId]);
         } else if (!!gameEvent.buildEvent) {
+            // for now, use the buildEvent as the general left-click
+            
+            // if bow, we don't want to actually build it
+            if (this.gameState.poolsByComponentName.buildableComponents[gameEvent.buildEvent.itemId]?.behavior == "BOW") {
+                const arrow = this.getNextId();
+                const playerPositionComponent = this.gameState.poolsByComponentName.positionComponents[gameEvent.buildEvent.playerId];
+                this.gameState.poolsByComponentName.positionComponents[arrow] = {x: playerPositionComponent.x, y: playerPositionComponent.y}
+                const distance = Math.pow(Math.pow(gameEvent.buildEvent.x - playerPositionComponent.x, 2) + Math.pow(gameEvent.buildEvent.y - playerPositionComponent.y, 2), 0.5); // used for norming
+                this.gameState.poolsByComponentName.velocityComponents[arrow] = {
+                    x: (gameEvent.buildEvent.x - playerPositionComponent.x) / distance * 1000,
+                    y: (gameEvent.buildEvent.y - playerPositionComponent.y) / distance * 1000
+                }
+                this.gameState.poolsByComponentName.drawableComponents[arrow] = {color: "black", shape: "CIRCLE", label: "pew!"};
+                this.gameState.poolsByComponentName.sizeComponents[arrow] = {size: 5};
+                return;
+            }
+
             // delete from player inventory, and put into world
             this.gameState.playerInventories[gameEvent.buildEvent.playerId].splice(this.gameState.playerInventories[gameEvent.buildEvent.playerId].indexOf(gameEvent.buildEvent.itemId), 1);
             this.gameState.poolsByComponentName.positionComponents[gameEvent.buildEvent.itemId] = {x: gameEvent.buildEvent.x, y: gameEvent.buildEvent.y};
@@ -319,9 +341,10 @@ class LocalHost extends BaseModel {
         // city
         const workshop = this.getNextId();
         this.gameState.entityIds[workshop] = true;
-        this.gameState.poolsByComponentName.positionComponents[workshop] = {x: 50 * 15, y: 0 * 50};
+        this.gameState.poolsByComponentName.positionComponents[workshop] = {x: 10 * 50, y: -5 * 50};
         this.gameState.poolsByComponentName.sizeComponents[workshop] = {size: 150};
         this.gameState.poolsByComponentName.drawableComponents[workshop] = {color: "beige", shape: "SQUARE", label: "Workshop"};
+        this.gameState.poolsByComponentName.usableComponents[workshop] = {behavior: "WORKSHOP"};
 
         // wilderness
         this.makePlot(-150, 150, 150);
@@ -656,7 +679,7 @@ class LocalClient extends BaseModel {
                             playerId: this.playerId,
                             playerHoldingId: this.gameState.playerInventories[this.playerId].at(-1),
                             targetId: entityId}}});
-                return;
+                return; // note that if entities are drawn over each other, this will only click on the bottom entity.
             }
         }
 
@@ -692,7 +715,7 @@ class LocalClient extends BaseModel {
             }
             if (Math.abs(x - positionComponent.x) <= sizeComponent.size / 2 && Math.abs(y - positionComponent.y) <= sizeComponent.size / 2) {
                 this.host.handlePacket(this, {gameEvent: {collectEvent: {playerId: this.playerId, itemId: entityId}}});
-                return;
+                return; // note that if entities are drawn over each other, this will only click on the bottom entity.
             }
         }
     }

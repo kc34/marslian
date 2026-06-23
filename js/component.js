@@ -6,11 +6,12 @@
  * @property {Object.<number, DrawableComponent>} drawableComponents
  * @property {Object.<number, FollowPlayerComponent>} followPlayerComponents
  * @property {Object.<number, AgeableComponent>} ageableComponents
- * @property {Object.<number, UsableComponent>} usableComponents
+ * @property {Object.<number, UsableComponent>} usableComponents // TODO: maybe rename to structure behavior component?
+ * @property {Object.<number, BuildableComponent>} buildableComponents // TODO: maybe rename to item behavior component?
  */
 
 /**
- * @typedef {"positionComponents"|"sizeComponents"|"velocityComponents"|"drawableComponents"|"followPlayerComponents"|"ageableComponents"|"usableComponents"} ComponentName
+ * @typedef {"positionComponents"|"sizeComponents"|"velocityComponents"|"drawableComponents"|"followPlayerComponents"|"ageableComponents"|"usableComponents"|"buildableComponents"} ComponentName
  */
 
 /**
@@ -55,7 +56,12 @@
 
 /**
  * @typedef {Object} UsableComponent
- * @property {"PLOT"|"TREE"} behavior
+ * @property {"PLOT"|"TREE"|"WORKSHOP"} behavior
+ */
+
+/**
+ * @typedef {Object} BuildableComponent
+ * @property {"BOW"} behavior
  */
 
 class FullComponentPools {
@@ -68,6 +74,7 @@ class FullComponentPools {
             followPlayerComponents: {},
             ageableComponents: {},
             usableComponents: {},
+            buildableComponents: {},
         }
     }
 }
