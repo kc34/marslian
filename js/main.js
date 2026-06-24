@@ -69,28 +69,28 @@ class BaseModel {
 
     /**
      * @param {ComponentName[]} componentNames
+     * @returns {Map<number, EntityComponents>}
+     */
+
+    /**
+     * @template {keyof EntityComponents} K
+     * @param {K[]} componentNames
+     * @returns {Map<number, Omit<EntityComponents, K> & Required<Pick<EntityComponents, K>>>}
      */
     query(componentNames) {
         /** @type {Map<number, EntityComponents>} */
-        const entities = new Map();
-        for (const entityId of Object.keys(this.gameState.entityIds)) {
-            const entityComponents = {};
-            for (const componentName of componentNames) {
-                const componentPool = this.gameState.poolsByComponentName[componentName + 's'];
-                if (!componentPool) {
-                    break;
-                }
-                const component = componentPool[parseInt(entityId)];
-                if (!component) {
-                    break;
-                }
-                entityComponents[componentName] = component;
-            }
-            if (Object.entries(entityComponents).length == componentNames.length) {
-                entities.set(parseInt(entityId), entityComponents);
-            }
+        if (componentNames.length == 0) {
+            return new Map();
         }
-        return entities;
+        let entityIds = new Set(Object.keys(this.gameState.poolsByComponentName[componentNames[0] + 's']));
+        for (let i = 1; i < componentNames.length; i++) {
+            entityIds = entityIds.intersection(new Set(Object.keys(this.gameState.poolsByComponentName[componentNames[i] + 's'])));
+        }
+        let entityComponents = new Map();
+        for (const entityId of entityIds) {
+            entityComponents.set(parseInt(entityId), this.getEntityComponents(parseInt(entityId)));
+        }
+        return entityComponents;
     }
 
     /**
@@ -108,6 +108,7 @@ class BaseModel {
      * @returns {EntityComponents} 
      */
     getEntityComponents(entityId) {
+        /** @type {EntityComponents} */
         const entityComponents = {}
         for (const [componentNamePlural, componentPool] of Object.entries(this.gameState.poolsByComponentName)) {
             entityComponents[componentNamePlural.slice(0, -1)] = componentPool[entityId];
@@ -117,18 +118,14 @@ class BaseModel {
 
     tick() {
         this.gameState.frameCount += 1;
-        const velocityEntityQuery =
-            /** @type {Map<Number, {velocityComponent: VelocityComponent, positionComponent: PositionComponent}>} */
-            (this.query(["velocityComponent", "positionComponent"]));
+        const velocityEntityQuery = this.query(["velocityComponent", "positionComponent"]);
         for (const [_, {velocityComponent, positionComponent}] of velocityEntityQuery) {
             positionComponent.x += velocityComponent.x * this.TIME_STEP;
             positionComponent.y += velocityComponent.y * this.TIME_STEP;
         }
 
         // FollowPlayerSystem
-        const followPlayerEntityQuery =
-            /** @type {Map<Number, {followPlayerComponent: FollowPlayerComponent, positionComponent: PositionComponent}>} */
-            (this.query(["followPlayerComponent", "positionComponent"]));
+        const followPlayerEntityQuery = this.query(["followPlayerComponent", "positionComponent"]);
         for (const [_, {followPlayerComponent, positionComponent}] of followPlayerEntityQuery) {
             const maxDistanceFromPlayer = followPlayerComponent.maxDistanceFromPlayer;
             const playerPositionComponent = this.gameState.poolsByComponentName.positionComponents[followPlayerComponent.followingId];
@@ -155,7 +152,7 @@ class BaseModel {
 
         // AgeableSystem
         const ageableQuery = this.query(["ageableComponent"]);
-        for (const [entityId, {ageableComponent}] of ageableQuery) {
+        for (const [entityId, {ageableComponent, positionComponent}] of ageableQuery) {
             ageableComponent.age += this.TIME_STEP;
 
             if (this.getEntityComponents(entityId).drawableComponent?.label === "Slime Spawner") {
@@ -167,7 +164,7 @@ class BaseModel {
                     this.setEntityComponents(
                         slimeId,
                         {
-                            positionComponent: {x: this.getEntityComponents(entityId).positionComponent.x + dx * 250, y: this.getEntityComponents(entityId).positionComponent.y + dy * 250},
+                            positionComponent: {x: positionComponent.x + dx * 250, y: positionComponent.y + dy * 250},
                             sizeComponent: {size: 25},
                             drawableComponent: {color: "lightgreen", shape: "CIRCLE", label: "slime"},
                         });
@@ -663,9 +660,7 @@ class LocalClient extends BaseModel {
         ctx.fillStyle = "#886e6e";
 		ctx.fillRect( 0 , 0, canvas.width, canvas.height);
 
-        const entityQuery =
-            /** @type {Map<number, {drawableComponent: DrawableComponent, positionComponent: PositionComponent, sizeComponent: SizeComponent}>} */
-            (this.query(["drawableComponent", "positionComponent", "sizeComponent"]));
+        const entityQuery = this.query(["drawableComponent", "positionComponent", "sizeComponent"]);
         for (const [entityId, {drawableComponent, positionComponent, sizeComponent}] of entityQuery) {
             const cameraPositionComponent = !!this.cameraId ? this.gameState.poolsByComponentName.positionComponents[this.cameraId] : undefined;
             var screenX;
@@ -816,7 +811,7 @@ class LocalClient extends BaseModel {
         const entityQuery =
         /** @type {Map<number, {positionComponent: PositionComponent, sizeComponent: SizeComponent, usableComponent: UsableComponent}>} */
         (this.query(["positionComponent", "sizeComponent", "usableComponent"]));
-        for (const [entityId, {positionComponent, sizeComponent, usableComponent}] of entityQuery) {
+        for (const [entityId, {positionComponent, sizeComponent}] of entityQuery) {
             if (Math.abs(x - positionComponent.x) <= sizeComponent.size / 2 && Math.abs(y - positionComponent.y) <= sizeComponent.size / 2) {
                 this.host.handlePacket(this, {
                     gameEvent: {
@@ -850,9 +845,7 @@ class LocalClient extends BaseModel {
             return;
         }
 
-        const entityQuery =
-            /** @type {Map<number, {positionComponent: PositionComponent, sizeComponent: SizeComponent}>} */
-            (this.query(["positionComponent", "sizeComponent"]));
+        const entityQuery = this.query(["positionComponent", "sizeComponent"]);
         for (const [entityId, {positionComponent, sizeComponent}] of entityQuery) {
             if (entityId === this.playerId) {
                 // can't collect yourself, or else you can't build yourself
