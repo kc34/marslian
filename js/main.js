@@ -528,6 +528,14 @@ class LocalHost extends BaseModel {
 
     tick() {
         super.tick();
+
+        for (const playerId of this.connections.keys()) {
+            const gameStateString = JSON.stringify(this.gameState);
+            const connection = this.connections.get(playerId);
+            if (!!connection) {
+                connection.handlePacket({syncPacket: {gameState: JSON.parse(gameStateString)}});
+            }
+        }
     }
 
     /**
@@ -628,6 +636,8 @@ class LocalClient extends BaseModel {
             this.cameraId = packet.playerJoinSuccessPacket.cameraId;
         } else if (packet.gameEvent) {
             this.handleGameEvent(packet.gameEvent);
+        } else if (packet.syncPacket) {
+            this.gameState = packet.syncPacket.gameState;
         }
     }
 

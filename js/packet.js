@@ -6,6 +6,7 @@
  * @typedef {Object} Packet
  * @property {PlayerJoinPacket=} playerJoinPacket
  * @property {PlayerJoinSuccessPacket=} playerJoinSuccessPacket
+ * @property {SyncPacket=} syncPacket
  * @property {GameEvent=} gameEvent
  */
 
@@ -20,4 +21,9 @@
  * @property {GameState} gameState
  * @property {number} playerId
  * @property {number} cameraId
+ */
+
+/**
+ * @typedef {Object} SyncPacket
+ * @property {GameState} gameState
  */
