@@ -155,6 +155,9 @@ class BaseModel {
         for (const [entityId, {ageableComponent, positionComponent}] of ageableQuery) {
             ageableComponent.age += this.TIME_STEP;
 
+            if (!positionComponent) {
+                continue;
+            }
             if (this.getEntityComponents(entityId).drawableComponent?.label === "Slime Spawner") {
                 if (Math.floor(ageableComponent.age / 5) > Math.floor((ageableComponent.age - this.TIME_STEP) / 5)) {
                     const seed = Math.floor(ageableComponent.age / 5);
@@ -167,6 +170,7 @@ class BaseModel {
                             positionComponent: {x: positionComponent.x + dx * 250, y: positionComponent.y + dy * 250},
                             sizeComponent: {size: 25},
                             drawableComponent: {color: "lightgreen", shape: "CIRCLE", label: "slime"},
+                            hurtboxComponent: {radius: 12.5, maxHealth: 10, currentHealth: 10}
                         });
                 }
             }
@@ -183,6 +187,22 @@ class BaseModel {
                     delete this.gameState.entityIds[hitEntity];
                     for (const [_, componentPool] of Object.entries(this.gameState.poolsByComponentName)) {
                         delete componentPool[hitEntity];
+                    }
+                    
+                    const hurtEntityComponents = this.getEntityComponents(hurtEntity);
+                    if (hurtEntityComponents.drawableComponent?.label === "Slime Spawner") {
+                        const seed = hurtEntityComponents.ageableComponent.age;
+                        const dx = Math.sin(seed * seed);
+                        const dy = Math.cos(seed * seed);
+                        const slimeId = this.popNextId();
+                        this.setEntityComponents(
+                            slimeId,
+                            {
+                                positionComponent: {x: hurtEntityComponents.positionComponent.x + dx * 250, y: hurtEntityComponents.positionComponent.y + dy * 250},
+                                sizeComponent: {size: 25},
+                                drawableComponent: {color: "lightgreen", shape: "CIRCLE", label: "slime"},
+                                hurtboxComponent: {radius: 12.5, maxHealth: 10, currentHealth: 10}
+                            });
                     }
                 }
                 if (hurtboxComponent.currentHealth <= 0) {
@@ -502,7 +522,7 @@ class LocalHost extends BaseModel {
                 drawableComponent: {color: "lightgreen", shape: "CIRCLE", label: "Slime Spawner"},
                 ageableComponent: {age: 0},
                 buildableComponent: {behavior: "BUILD"},
-                hurtboxComponent: {radius: 150, maxHealth: 100, currentHealth: 100, alreadyHitBy: []},
+                hurtboxComponent: {radius: 75, maxHealth: 5000, currentHealth: 5000},
             });
     }
 
@@ -661,7 +681,7 @@ class LocalClient extends BaseModel {
 		ctx.fillRect( 0 , 0, canvas.width, canvas.height);
 
         const entityQuery = this.query(["drawableComponent", "positionComponent", "sizeComponent"]);
-        for (const [entityId, {drawableComponent, positionComponent, sizeComponent}] of entityQuery) {
+        for (const [entityId, {drawableComponent, positionComponent, sizeComponent, hurtboxComponent}] of entityQuery) {
             const cameraPositionComponent = !!this.cameraId ? this.gameState.poolsByComponentName.positionComponents[this.cameraId] : undefined;
             var screenX;
             var screenY;
@@ -680,7 +700,8 @@ class LocalClient extends BaseModel {
                 screenX,
                 screenY,
                 sizeComponent.size / scale,
-                age);
+                age,
+                hurtboxComponent ? hurtboxComponent.currentHealth / hurtboxComponent.maxHealth : undefined);
         }
 
         const playerInventory = this.gameState.playerInventories[this.playerId];
@@ -698,10 +719,12 @@ class LocalClient extends BaseModel {
             // draw a background square to hold the entity.
             this.drawEntity(
                 {color: "#ffffff", shape: "CIRCLE", label}, ctx, itemX, itemY, size);
-            const age = this.gameState.poolsByComponentName.ageableComponents[playerInventory[i]]?.age;
+            const entityComponents = this.getEntityComponents(playerInventory[i]);
+            const age = entityComponents.ageableComponent?.age;
             this.drawEntity(
-                    this.gameState.poolsByComponentName.drawableComponents[playerInventory[i]],
-                    ctx, itemX, itemY, size/2, age);
+                    entityComponents.drawableComponent,
+                    ctx, itemX, itemY, size/2, age,
+                    entityComponents.hurtboxComponent ? entityComponents.hurtboxComponent.currentHealth / entityComponents.hurtboxComponent.maxHealth : undefined);
         }
     }
 
@@ -712,8 +735,9 @@ class LocalClient extends BaseModel {
      * @param {number} screenY
      * @param {number} size
      * @param {number} [age=100]
+     * @param {number} [healthRatio]
      */
-    drawEntity(drawableComponent, ctx, screenX, screenY, size, age) {
+    drawEntity(drawableComponent, ctx, screenX, screenY, size, age, healthRatio) {
         if (drawableComponent === undefined) {
             drawableComponent = {color: "red", shape: "NOPE"};
         }
@@ -763,6 +787,16 @@ class LocalClient extends BaseModel {
         if (!!drawableComponent.label) {
             const textWidth = ctx.measureText(drawableComponent.label);
 		    ctx.fillText(drawableComponent.label, screenX - textWidth.width / 2, screenY - size / 2 - 10);
+        }
+        if (healthRatio !== undefined && healthRatio != 1) {
+            ctx.beginPath();
+            ctx.rect(screenX - size / 2, screenY - size / 2, size, -10);
+            ctx.fillStyle = "red"
+            ctx.fill();
+            ctx.beginPath();
+            ctx.rect(screenX - size / 2, screenY - size / 2, size * healthRatio, -10);
+            ctx.fillStyle = "green"
+            ctx.fill();
         }
     }
 

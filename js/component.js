@@ -93,7 +93,6 @@
  * @property {number} radius
  * @property {number} maxHealth
  * @property {number} currentHealth
- * @property {number[]} alreadyHitBy
  */
 
 class FullComponentPools {
