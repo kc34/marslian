@@ -229,8 +229,8 @@ class BaseModel {
                 sizeComponent: {size: size},
                 drawableComponent: {color: "#832a2a", shape: "PLOT", secondColor: "yellow"},
                 ageableComponent: {age: 0},
-                usableComponent: {behavior: "PLOT"},
-                buildableComponent: {behavior: "BUILD"},
+                interactableComponent: {behavior: "PLOT"},
+                usableComponent: {behavior: "BUILD"},
             });
     }
 
@@ -248,8 +248,8 @@ class BaseModel {
                 sizeComponent: {size: size},
                 drawableComponent: {color: "brown", shape: "TREE"},
                 ageableComponent: {age: 0},
-                usableComponent: {behavior: "TREE"},
-                buildableComponent: {behavior: "BUILD"},
+                interactableComponent: {behavior: "TREE"},
+                usableComponent: {behavior: "BUILD"},
             });
     }
 
@@ -279,14 +279,14 @@ class BaseModel {
                     sizeComponent: {size: 50},
                     velocityComponent: {x: 0, y: 0},
                     drawableComponent: {color: gameEvent.newPlayerEvent.color, label: gameEvent.newPlayerEvent.label, shape: "CIRCLE"},
-                    buildableComponent: {behavior: "BUILD"},
+                    usableComponent: {behavior: "BUILD"},
                 });
             this.setEntityComponents(
                 gameEvent.newPlayerEvent.cameraId,
                 {
                     positionComponent: {x: gameEvent.newPlayerEvent.cameraX, y: gameEvent.newPlayerEvent.cameraY},
                     followPlayerComponent: {maxDistanceFromPlayer: 150, followingId: gameEvent.newPlayerEvent.playerId},
-                    buildableComponent: {behavior: "BUILD"},
+                    usableComponent: {behavior: "BUILD"},
                 });
             this.gameState.playerInventories[gameEvent.newPlayerEvent.playerId] = [-1];
         } else if (!!gameEvent.useEvent) {
@@ -302,7 +302,7 @@ class BaseModel {
                 return;
             }
 
-            if (this.gameState.poolsByComponentName.usableComponents[targetId]?.behavior == "PLOT") {
+            if (this.gameState.poolsByComponentName.interactableComponents[targetId]?.behavior == "PLOT") {
                 const ageableComponent = this.gameState.poolsByComponentName.ageableComponents[targetId];
                 if (ageableComponent.age > 10) {
                     const cornId = this.popNextId();
@@ -311,12 +311,12 @@ class BaseModel {
                         {
                             sizeComponent: {size: this.gameState.poolsByComponentName.sizeComponents[targetId].size},
                             drawableComponent: {color: "yellow", shape: "CIRCLE"},
-                            buildableComponent: {behavior: "BUILD"},
+                            usableComponent: {behavior: "BUILD"},
                         });
                     this.gameState.playerInventories[gameEvent.useEvent.playerId].push(cornId);
                     ageableComponent.age = 0;
                 }
-            } else if (this.gameState.poolsByComponentName.usableComponents[targetId]?.behavior == "TREE") {
+            } else if (this.gameState.poolsByComponentName.interactableComponents[targetId]?.behavior == "TREE") {
                 const ageableComponent = this.gameState.poolsByComponentName.ageableComponents[targetId];
                 if (ageableComponent.age > 10) {
                     const woodId = this.popNextId();
@@ -326,18 +326,18 @@ class BaseModel {
                         {
                             sizeComponent: {size: this.gameState.poolsByComponentName.sizeComponents[targetId].size / 2},
                             drawableComponent: {color: "brown", shape: "SQUARE"},
-                            buildableComponent: {behavior: "BUILD"},
+                            usableComponent: {behavior: "BUILD"},
                         });
                     this.gameState.playerInventories[gameEvent.useEvent.playerId].push(woodId);
                     ageableComponent.age = 0;
                 }
-            } else if (this.gameState.poolsByComponentName.usableComponents[targetId]?.behavior == "WORKSHOP") {
+            } else if (this.gameState.poolsByComponentName.interactableComponents[targetId]?.behavior == "WORKSHOP") {
                 const bowId = this.popNextId();
                 this.setEntityComponents(
                         bowId,
                         {
-                            drawableComponent: {color: "black", shape: "SQUARE", label: "bow"},
-                            buildableComponent: {behavior: "BOW"},
+                            drawableComponent: {color: "black", shape: "?", label: "bow"},
+                            usableComponent: {behavior: "BOW"},
                         });
                 this.gameState.playerInventories[gameEvent.useEvent.playerId].push(bowId);
             }
@@ -363,7 +363,7 @@ class BaseModel {
             // for now, use the buildEvent as the general left-click
             
             // if bow, we don't want to actually build it
-            if (this.gameState.poolsByComponentName.buildableComponents[gameEvent.buildEvent.itemId]?.behavior == "BOW") {
+            if (this.gameState.poolsByComponentName.usableComponents[gameEvent.buildEvent.itemId]?.behavior == "BOW") {
                 const playerPositionComponent = this.gameState.poolsByComponentName.positionComponents[gameEvent.buildEvent.playerId];
                 const distance = Math.pow(Math.pow(gameEvent.buildEvent.x - playerPositionComponent.x, 2) + Math.pow(gameEvent.buildEvent.y - playerPositionComponent.y, 2), 0.5); // used for norming
                 const arrow = this.popNextId();
@@ -379,7 +379,7 @@ class BaseModel {
                         drawableComponent: {color: "black", shape: "CIRCLE", label: "pew!"},
                         hitboxComponent: {radius: 5, damage: 50}
                     });
-            } else if (this.gameState.poolsByComponentName.buildableComponents[gameEvent.buildEvent.itemId]?.behavior === "BUILD" || this.gameState.poolsByComponentName.buildableComponents[gameEvent.buildEvent.itemId]?.behavior === undefined) {
+            } else if (this.gameState.poolsByComponentName.usableComponents[gameEvent.buildEvent.itemId]?.behavior === "BUILD" || this.gameState.poolsByComponentName.usableComponents[gameEvent.buildEvent.itemId]?.behavior === undefined) {
                 // delete from player inventory, and put into world
                 this.gameState.playerInventories[gameEvent.buildEvent.playerId].splice(this.gameState.playerInventories[gameEvent.buildEvent.playerId].indexOf(gameEvent.buildEvent.itemId), 1);
                 this.gameState.poolsByComponentName.positionComponents[gameEvent.buildEvent.itemId] = {x: gameEvent.buildEvent.x, y: gameEvent.buildEvent.y};
@@ -425,7 +425,7 @@ class LocalHost extends BaseModel {
                         positionComponent: {x: 50 * x, y: y * 50},
                         sizeComponent: {size: 50},
                         drawableComponent: {color: "#0080ff", shape: "SQUARE"},
-                        buildableComponent: {behavior: "BUILD"},
+                        usableComponent: {behavior: "BUILD"},
                     });
             }
         }
@@ -443,7 +443,7 @@ class LocalHost extends BaseModel {
                         positionComponent: {x: 50 * x, y: y * 50},
                         sizeComponent: {size: 50},
                         drawableComponent: {color: "gray", shape: "SQUARE"},
-                        buildableComponent: {behavior: "BUILD"},
+                        usableComponent: {behavior: "BUILD"},
                     });
             }
         }
@@ -458,7 +458,7 @@ class LocalHost extends BaseModel {
                         positionComponent: {x: 50 * x, y: y * 50},
                         sizeComponent: {size: 50},
                         drawableComponent: {color: "maroon", shape: "SQUARE"},
-                        buildableComponent: {behavior: "BUILD"},
+                        usableComponent: {behavior: "BUILD"},
                     });
             }
         }
@@ -480,7 +480,7 @@ class LocalHost extends BaseModel {
                         positionComponent: {x: 50 * x, y: y * 50},
                         sizeComponent: {size: 50},
                         drawableComponent: {color: "brown", shape: "SQUARE"},
-                        buildableComponent: {behavior: "BUILD"},
+                        usableComponent: {behavior: "BUILD"},
                     });
             }
         }
@@ -506,8 +506,8 @@ class LocalHost extends BaseModel {
                 positionComponent: {x: 10 * 50, y: -5 * 50},
                 sizeComponent: {size: 150},
                 drawableComponent: {color: "beige", shape: "SQUARE", label: "Workshop"},
-                usableComponent: {behavior: "WORKSHOP"},
-                buildableComponent: {behavior: "BUILD"},
+                interactableComponent: {behavior: "WORKSHOP"},
+                usableComponent: {behavior: "BUILD"},
             });
 
 
@@ -523,7 +523,7 @@ class LocalHost extends BaseModel {
                 sizeComponent: {size: 150},
                 drawableComponent: {color: "lightgreen", shape: "CIRCLE", label: "Slime Spawner"},
                 ageableComponent: {age: 0},
-                buildableComponent: {behavior: "BUILD"},
+                usableComponent: {behavior: "BUILD"},
                 hurtboxComponent: {radius: 75, maxHealth: 5000, currentHealth: 5000},
             });
     }
@@ -795,6 +795,10 @@ class LocalClient extends BaseModel {
 		    ctx.font = Math.round(size / 2).toString() + "px Courier New";
 		    ctx.fillText("NO", screenX - ctx.measureText("NO").width / 2, screenY);
 		    ctx.fillText("PE", screenX - ctx.measureText("PE").width / 2, screenY + size * 0.45);
+        } else if (drawableComponent.shape === '?') {
+            ctx.fillStyle = drawableComponent.color;
+		    ctx.font = Math.round(size).toString() + "px Courier New";
+		    ctx.fillText("?", screenX - ctx.measureText("?").width / 2, screenY + size * 0.25);
         }
 
 		ctx.font = "20px Courier New";
@@ -857,8 +861,8 @@ class LocalClient extends BaseModel {
             return;
         }
         const entityQuery =
-        /** @type {Map<number, {positionComponent: PositionComponent, sizeComponent: SizeComponent, usableComponent: UsableComponent}>} */
-        (this.query(["positionComponent", "sizeComponent", "usableComponent"]));
+        /** @type {Map<number, {positionComponent: PositionComponent, sizeComponent: SizeComponent, interactableComponent: InteractableComponent}>} */
+        (this.query(["positionComponent", "sizeComponent", "interactableComponent"]));
         for (const [entityId, {positionComponent, sizeComponent}] of entityQuery) {
             if (Math.abs(x - positionComponent.x) <= sizeComponent.size / 2 && Math.abs(y - positionComponent.y) <= sizeComponent.size / 2) {
                 this.host.handlePacket(this, {

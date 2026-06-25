@@ -6,8 +6,8 @@
  * @property {Object.<number, DrawableComponent>} drawableComponents
  * @property {Object.<number, FollowPlayerComponent>} followPlayerComponents
  * @property {Object.<number, AgeableComponent>} ageableComponents
- * @property {Object.<number, UsableComponent>} usableComponents // TODO: maybe rename to structure behavior component?
- * @property {Object.<number, BuildableComponent>} buildableComponents // TODO: maybe rename to item behavior component?
+ * @property {Object.<number, InteractableComponent>} interactableComponents
+ * @property {Object.<number, UsableComponent>} usableComponents
  * @property {Object.<number, HitboxComponent>} hitboxComponents
  * @property {Object.<number, HurtboxComponent>} hurtboxComponents
  */
@@ -22,8 +22,8 @@
  * @property {DrawableComponent} [drawableComponent]
  * @property {FollowPlayerComponent} [followPlayerComponent]
  * @property {AgeableComponent} [ageableComponent]
+ * @property {InteractableComponent} [interactableComponent]
  * @property {UsableComponent} [usableComponent]
- * @property {BuildableComponent} [buildableComponent]
  * @property {HitboxComponent} [hitboxComponent]
  * @property {HurtboxComponent} [hurtboxComponent]
  */
@@ -52,7 +52,7 @@
  * @property {string} color
  * @property {string=} label
  * @property {string=} secondColor
- * @property {"CIRCLE"|"SQUARE"|"TREE"|"PLOT"|"NOPE"} shape
+ * @property {"CIRCLE"|"SQUARE"|"TREE"|"PLOT"|"NOPE"|"?"} shape
  */
 
 /**
@@ -69,7 +69,7 @@
 /**
  * Describes what happens if you left-click on this while it is in the world.
  * 
- * @typedef {Object} UsableComponent
+ * @typedef {Object} InteractableComponent
  * @property {"PLOT"|"TREE"|"WORKSHOP"} behavior
  */
 
@@ -78,7 +78,7 @@
  * 
  * <p>TODO: Maybe BUILD should be called Place?
  * 
- * @typedef {Object} BuildableComponent
+ * @typedef {Object} UsableComponent
  * @property {"BOW"|"BUILD"} behavior
  */
 
@@ -96,6 +96,8 @@
  */
 
 class FullComponentPools {
+
+    /** @returns {FullComponentPool} */
     static newComponentPool() {
         return {
             positionComponents: {},
@@ -104,8 +106,8 @@ class FullComponentPools {
             drawableComponents: {},
             followPlayerComponents: {},
             ageableComponents: {},
+            interactableComponents: {},
             usableComponents: {},
-            buildableComponents: {},
             hitboxComponents: {},
             hurtboxComponents: {},
         }
