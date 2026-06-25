@@ -66,16 +66,36 @@ const gameScreen =          /** @type {HTMLDivElement} */       (document.getEle
 const canvas =              /** @type {HTMLCanvasElement} */    (document.getElementById("myCanvas"));
 const inGameHostButton =    /** @type {HTMLButtonElement} */    (document.getElementById("in-game-host-button"));
 const idSpan =              /** @type {HTMLSpanElement} */      (document.getElementById("my-id"));
+const copyId =              /** @type {HTMLButtonElement} */    (document.getElementById("copy-id"));
 
 inGameHostButton.addEventListener('click', () => {
     startHosting(localHost);
 });
 
+copyId.addEventListener('click', () => {
+    navigator.clipboard.writeText(idSpan.textContent);
+});
+
 function startHost() {
     localHost = new LocalHost();
-    setInterval(function() {
+
+    // Run the timer code in a Worker.
+    // However, since we're not using a server, we have to put it into a Blob.
+    const workerCode = `
+    self.onmessage = function(event) {
+        setInterval(function() {
+            self.postMessage("tick!");
+        }, 1000.0 / 60)
+    }
+    `;
+    const workerBlob = new Blob([workerCode], { type: 'application/javascript' });
+    const workerUrl = URL.createObjectURL(workerBlob);
+    const timerWorker = new Worker(workerUrl);
+
+    timerWorker.postMessage("start");
+    timerWorker.onmessage = function() {
         localHost.tick();
-    }, 1000.0 / 60)
+    }
 }
 
 /** @param {Host} host */
@@ -90,7 +110,7 @@ function startClient(host) {
     canvas.height = window.innerHeight;
 
     setInterval(function() { localClient.draw(canvas); }, 1000.0 / 60)
-    window.addEventListener('keydown', function(key) { localClient.keydownHandler(key); });
+    window.addEventListener('keydown', function(key) { key.preventDefault(); localClient.keydownHandler(key); });
     window.addEventListener('keyup', function(key) { localClient.keyupHandler(key); });
     canvas.addEventListener('click', function(click) { localClient.clickHandler(click); });
     
@@ -106,6 +126,8 @@ function startHosting(host) {
 
     peer.on('open', (id) => {
         idSpan.textContent = id;
+        inGameHostButton.remove();
+        copyId.style.display = "inline";
     })
 
     peer.on('connection', (incomingConn) => {

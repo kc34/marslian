@@ -8,6 +8,7 @@
  * @property {UseAtPointEvent=} useAtPointEvent
  * @property {CollectEvent=} collectEvent
  * @property {BuildEvent=} buildEvent
+ * @property {SetPlayerInventoryEvent=} setPlayerInventoryEvent
  */
 
 /**
@@ -55,4 +56,10 @@
  * @property {number} itemId
  * @property {number} x
  * @property {number} y
+ */
+
+/**
+ * @typedef {Object} SetPlayerInventoryEvent
+ * @property {number} playerId
+ * @property {number[]} playerInventory
  */

@@ -384,6 +384,8 @@ class BaseModel {
                 this.gameState.playerInventories[gameEvent.buildEvent.playerId].splice(this.gameState.playerInventories[gameEvent.buildEvent.playerId].indexOf(gameEvent.buildEvent.itemId), 1);
                 this.gameState.poolsByComponentName.positionComponents[gameEvent.buildEvent.itemId] = {x: gameEvent.buildEvent.x, y: gameEvent.buildEvent.y};
             }
+        } else if (!!gameEvent.setPlayerInventoryEvent) {
+            this.gameState.playerInventories[gameEvent.setPlayerInventoryEvent.playerId] = gameEvent.setPlayerInventoryEvent.playerInventory;
         } else {
             console.log("unrecognized game event!!");
         }
@@ -529,11 +531,13 @@ class LocalHost extends BaseModel {
     tick() {
         super.tick();
 
-        for (const playerId of this.connections.keys()) {
-            const gameStateString = JSON.stringify(this.gameState);
-            const connection = this.connections.get(playerId);
-            if (!!connection) {
-                connection.handlePacket({syncPacket: {gameState: JSON.parse(gameStateString)}});
+        if (this.gameState.frameCount % 60 == 0) {
+            for (const playerId of this.connections.keys()) {
+                const gameStateString = JSON.stringify(this.gameState);
+                const connection = this.connections.get(playerId);
+                if (!!connection) {
+                    connection.handlePacket({syncPacket: {gameState: JSON.parse(gameStateString)}});
+                }
             }
         }
     }
@@ -904,6 +908,11 @@ class LocalClient extends BaseModel {
 
     /** @param {WheelEvent} wheelEvent */
     mousewheelHandler(wheelEvent) {
+        this.#spinPlayerInventory(wheelEvent.deltaY < 0);
+    }
+
+    /** @param {boolean} reverse */
+    #spinPlayerInventory(reverse) {
         if (!this.playerId) {
             return;
         }
@@ -912,17 +921,26 @@ class LocalClient extends BaseModel {
             return;
         }
 
-        if (wheelEvent.deltaY > 0) {
+        if (!reverse) {
             playerInventory.unshift(playerInventory.pop());
-        } else if (wheelEvent.deltaY < 0) {
+            // Let the server know so that the refresh doesn't reset it
+            // This might re-broadcast back
+            this.host.handlePacket(this, {gameEvent: {setPlayerInventoryEvent: {playerId: this.playerId, playerInventory}}});
+        } else {
             playerInventory.push(playerInventory.shift());
+            // Let the server know so that the refresh doesn't reset it
+            // This might re-broadcast back
+            this.host.handlePacket(this, {gameEvent: {setPlayerInventoryEvent: {playerId: this.playerId, playerInventory}}});
         }
-
     }
 
     /** @param {KeyboardEvent} keyEvent */
     keydownHandler(keyEvent) {
         const key = keyEvent.key.toUpperCase();
+        if (key.toUpperCase() === "Tab".toUpperCase()) {
+            const reverse = this.pressedKeys.has("Shift".toUpperCase());
+            this.#spinPlayerInventory(reverse);
+        }
         this.pressedKeys.add(key);
     }
 
