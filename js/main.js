@@ -82,9 +82,9 @@ class BaseModel {
         if (componentNames.length == 0) {
             return new Map();
         }
-        let entityIds = new Set(Object.keys(this.gameState.poolsByComponentName[componentNames[0] + 's']));
+        let entityIds = new Set(Object.keys(this.gameState.poolsByComponentName[/** @type {ComponentPoolName} */ (componentNames[0] + 's')]));
         for (let i = 1; i < componentNames.length; i++) {
-            entityIds = entityIds.intersection(new Set(Object.keys(this.gameState.poolsByComponentName[componentNames[i] + 's'])));
+            entityIds = entityIds.intersection(new Set(Object.keys(this.gameState.poolsByComponentName[/** @type {ComponentPoolName} */ (componentNames[i] + 's')])));
         }
         let entityComponents = new Map();
         for (const entityId of entityIds) {
@@ -99,7 +99,7 @@ class BaseModel {
      */
     setEntityComponents(entityId, entityComponents) {
         for (const [componentName, component] of Object.entries(entityComponents)) {
-            this.gameState.poolsByComponentName[componentName + 's'][entityId] = component;
+            this.gameState.poolsByComponentName[/** @type {ComponentPoolName} */ (componentName + 's')][entityId] = component;
         }
     }
 
@@ -280,6 +280,7 @@ class BaseModel {
                     velocityComponent: {x: 0, y: 0},
                     drawableComponent: {color: gameEvent.newPlayerEvent.color, label: gameEvent.newPlayerEvent.label, shape: "CIRCLE"},
                     usableComponent: {behavior: "BUILD"},
+                    hurtboxComponent: {radius: 12.5, maxHealth: 5000, currentHealth: 5000},
                 });
             this.setEntityComponents(
                 gameEvent.newPlayerEvent.cameraId,
@@ -370,7 +371,9 @@ class BaseModel {
                 this.setEntityComponents(
                     arrow,
                     {
-                        positionComponent: {x: playerPositionComponent.x, y: playerPositionComponent.y},
+                        positionComponent: {
+                            x: playerPositionComponent.x + (gameEvent.buildEvent.x - playerPositionComponent.x) / distance * 50,
+                            y: playerPositionComponent.y + (gameEvent.buildEvent.y - playerPositionComponent.y) / distance * 50},
                         sizeComponent: {size: 5},
                         velocityComponent: {
                             x: (gameEvent.buildEvent.x - playerPositionComponent.x) / distance * 1000,

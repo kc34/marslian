@@ -12,6 +12,8 @@
  * @property {Object.<number, HurtboxComponent>} hurtboxComponents
  */
 
+/** @typedef {keyof FullComponentPool} ComponentPoolName */
+
 /**
  * Holds a set of Components for a specific entity.
  * 
@@ -75,8 +77,6 @@
 
 /**
  * Describes what happens if you left-click while this is in your inventory.
- * 
- * <p>TODO: Maybe BUILD should be called Place?
  * 
  * @typedef {Object} UsableComponent
  * @property {"BOW"|"BUILD"} behavior
