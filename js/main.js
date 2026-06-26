@@ -586,7 +586,7 @@ class LocalClient extends BaseModel {
 		ctx.fillRect( 0 , 0, canvas.width, canvas.height);
 
         const entityQuery = this.query(["drawableComponent", "positionComponent", "sizeComponent"]);
-        for (const [entityId, {drawableComponent, positionComponent, sizeComponent, hurtboxComponent}] of entityQuery) {
+        for (const [entityId, {drawableComponent, positionComponent, sizeComponent}] of entityQuery) {
             const cameraPositionComponent = !!this.cameraId ? this.gameState.poolsByComponentName.positionComponents[this.cameraId] : undefined;
             var screenX;
             var screenY;
@@ -598,15 +598,12 @@ class LocalClient extends BaseModel {
                 screenY = (canvas.height / 2) + (cameraPositionComponent.y - positionComponent.y) / scale;
             }
 
-            const age = this.gameState.poolsByComponentName.ageableComponents[entityId]?.age;
             this.drawEntity(
-                drawableComponent,
+                entityId,
                 ctx,
                 screenX,
                 screenY,
-                sizeComponent.size / scale,
-                age,
-                hurtboxComponent ? hurtboxComponent.currentHealth / hurtboxComponent.maxHealth : undefined);
+                sizeComponent.size / scale);
         }
 
         const playerInventory = this.gameState.playerInventories[this.playerId];
@@ -622,38 +619,29 @@ class LocalClient extends BaseModel {
                 label = "holding";
             }
             // draw a background square to hold the entity.
-            this.drawEntity(
-                {color: "#ffffff", shape: "CIRCLE", label}, ctx, itemX, itemY, size);
-            const entityComponents = this.getEntityComponents(playerInventory[i]);
-            const age = entityComponents.ageableComponent?.age;
-            this.drawEntity(
-                    entityComponents.drawableComponent,
-                    ctx, itemX, itemY, size/2, age,
-                    entityComponents.hurtboxComponent ? entityComponents.hurtboxComponent.currentHealth / entityComponents.hurtboxComponent.maxHealth : undefined);
+            this.drawCircle({color: "#ffffff", shape: "CIRCLE", label}, ctx, itemX, itemY, size);
+            this.drawLabel({color: "#ffffff", shape: "CIRCLE", label}, ctx, itemX, itemY, size);
+            this.drawEntity(playerInventory[i], ctx, itemX, itemY, size / 2);
         }
     }
 
     /**
-     * @param {DrawableComponent|undefined} drawableComponent
+     * @param {number} entityId
      * @param {CanvasRenderingContext2D} ctx
      * @param {number} screenX
      * @param {number} screenY
      * @param {number} size
-     * @param {number} [age=100]
-     * @param {number} [healthRatio]
      */
-    drawEntity(drawableComponent, ctx, screenX, screenY, size, age, healthRatio) {
-        if (drawableComponent === undefined) {
-            drawableComponent = {color: "red", shape: "NOPE"};
-        }
+    drawEntity(entityId, ctx, screenX, screenY, size) {
+        const entityComponents = this.getEntityComponents(entityId);
+        let drawableComponent = entityComponents.drawableComponent || {color: "red", shape: "NOPE"};
+        let age = entityComponents.ageableComponent?.age || 10;
+        let healthRatio = entityComponents.hurtboxComponent ? entityComponents.hurtboxComponent.currentHealth / entityComponents.hurtboxComponent.maxHealth : undefined;
+
         const maxAge = 10;
         const ageRatio = Math.min((age || maxAge) / maxAge, 1);
         if (drawableComponent.shape === 'CIRCLE') {
-            ctx.beginPath();
-            const radius = size / 2;
-            ctx.arc(screenX, screenY, radius, 0, 2 * Math.PI);
-            ctx.fillStyle = drawableComponent.color;
-            ctx.fill();
+            this.drawCircle(drawableComponent, ctx, screenX, screenY, size);
         } else if (drawableComponent.shape === 'SQUARE') {
             ctx.beginPath();
             // rect uses the top left corner
@@ -692,11 +680,7 @@ class LocalClient extends BaseModel {
 		    ctx.fillText("?", screenX - ctx.measureText("?").width / 2, screenY + size * 0.25);
         }
 
-		ctx.font = "20px Courier New";
-        if (!!drawableComponent.label) {
-            const textWidth = ctx.measureText(drawableComponent.label);
-		    ctx.fillText(drawableComponent.label, screenX - textWidth.width / 2, screenY - size / 2 - 10);
-        }
+        this.drawLabel(drawableComponent, ctx, screenX, screenY, size);
         if (healthRatio !== undefined && healthRatio != 1) {
             ctx.beginPath();
             ctx.rect(screenX - size / 2, screenY - size / 2, size, -10);
@@ -706,6 +690,36 @@ class LocalClient extends BaseModel {
             ctx.rect(screenX - size / 2, screenY - size / 2, size * healthRatio, -10);
             ctx.fillStyle = "green"
             ctx.fill();
+        }
+    }
+
+    /**
+     * @param {DrawableComponent} drawableComponent
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {number} screenX
+     * @param {number} screenY
+     * @param {number} size
+     */
+    drawCircle(drawableComponent, ctx, screenX, screenY, size) {
+        ctx.beginPath();
+        const radius = size / 2;
+        ctx.arc(screenX, screenY, radius, 0, 2 * Math.PI);
+        ctx.fillStyle = drawableComponent.color;
+        ctx.fill();
+    }
+
+    /**
+     * @param {DrawableComponent} drawableComponent
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {number} screenX
+     * @param {number} screenY
+     * @param {number} size
+     */
+    drawLabel(drawableComponent, ctx, screenX, screenY, size) {
+		ctx.font = "20px Courier New";
+        if (!!drawableComponent.label) {
+            const textWidth = ctx.measureText(drawableComponent.label);
+		    ctx.fillText(drawableComponent.label, screenX - textWidth.width / 2, screenY - size / 2 - 10);
         }
     }
 
