@@ -148,6 +148,9 @@ class BaseModel {
                 let closestTargetPositionComponent = this.getEntityComponents(closestTarget).positionComponent;
                 velocityComponent.x = (closestTargetPositionComponent.x - positionComponent.x) / closestTargetDistance * 50;
                 velocityComponent.y = (closestTargetPositionComponent.y - positionComponent.y) / closestTargetDistance * 50;
+            } else {
+                velocityComponent.x = 0;
+                velocityComponent.y = 0;
             }
         }
 
@@ -196,10 +199,13 @@ class BaseModel {
             }
         }
 
-        const hitboxEntities = this.query(["hitboxComponent", "positionComponent"]);
+        const hitboxEntities = this.query(["hitboxComponent", "positionComponent", "alignmentComponent"]);
         for (const [hitEntity, hitEntityComponents] of hitboxEntities) {
-            const hurtboxEntities = this.query(["hurtboxComponent", "positionComponent"]);
+            const hurtboxEntities = this.query(["hurtboxComponent", "positionComponent", "alignmentComponent"]);
             for (const [hurtEntity, hurtEntityComponents] of hurtboxEntities) {
+                if (hitEntityComponents.alignmentComponent.alignment === hurtEntityComponents.alignmentComponent.alignment) {
+                    continue;
+                }
                 const distance = 
                     Math.pow(
                         Math.pow(hurtEntityComponents.positionComponent.x - hitEntityComponents.positionComponent.x, 2) +
