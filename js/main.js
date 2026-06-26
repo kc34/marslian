@@ -127,7 +127,7 @@ class BaseModel {
             // find closest target within vision
             let closestTarget;
             let closestTargetDistance = 69420;
-            const alignmentQuery = this.query(["alignmentComponent", "positionComponent"]);
+            const alignmentQuery = this.query(["alignmentComponent", "positionComponent", "hurtboxComponent"]);
             for (const [targetId, {alignmentComponent: targetAlignmentComponent, positionComponent: targetPositionComponent}] of alignmentQuery) {
                 if (alignmentComponent?.alignment === targetAlignmentComponent.alignment) {
                     continue;
