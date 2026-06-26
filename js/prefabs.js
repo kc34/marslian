@@ -1,5 +1,5 @@
 // Uncomment this line to have CheckJS check for correctness.
-// /** @type {Object.<string, EntityComponents>} */
+/** @type {Object.<string, EntityComponents>} */
 const PREFABS = Object.freeze({
     "PLAYER": {
         sizeComponent: {size: 50},
@@ -25,7 +25,7 @@ const PREFABS = Object.freeze({
     "ARROW": {
         sizeComponent: {size: 5},
         drawableComponent: {color: "black", shape: "CIRCLE", label: "pew!"},
-        hitboxComponent: {radius: 5, damage: 50},
+        hitboxComponent: {radius: 5, damage: 50, deleteOnHit: true},
         alignmentComponent: {alignment: "GOOD"},
     },
     "PLOT": {
@@ -72,7 +72,7 @@ const PREFABS = Object.freeze({
         velocityComponent: {x: 0, y: 0},
         sizeComponent: {size: 25},
         drawableComponent: {color: "lightgreen", shape: "CIRCLE", label: "slime"},
-        hitboxComponent: {radius: 12.5, damage: 50},
+        hitboxComponent: {radius: 12.5, damage: 1},
         hurtboxComponent: {radius: 12.5, maxHealth: 10, currentHealth: 10},
         alignmentComponent: {alignment: "EVIL"},
         aiComponent: {},

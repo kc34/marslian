@@ -133,7 +133,7 @@ class BaseModel {
                     continue;
                 }
                 const distance = Math.pow(Math.pow(positionComponent.x - targetPositionComponent.x, 2) + Math.pow(positionComponent.y - targetPositionComponent.y, 2), 0.5);
-                const vision = 1000;
+                const vision = 500;
                 if (distance > vision) {
                     continue;
                 }
@@ -213,9 +213,11 @@ class BaseModel {
                         0.5);
                 if (distance < hurtEntityComponents.hurtboxComponent.radius + hitEntityComponents.hitboxComponent.radius) {
                     hurtEntityComponents.hurtboxComponent.currentHealth -= hitEntityComponents.hitboxComponent?.damage;
-                    delete this.gameState.entityIds[hitEntity];
-                    for (const [_, componentPool] of Object.entries(this.gameState.poolsByComponentName)) {
-                        delete componentPool[hitEntity];
+                    if (hitEntityComponents.hitboxComponent.deleteOnHit) {
+                        delete this.gameState.entityIds[hitEntity];
+                        for (const [_, componentPool] of Object.entries(this.gameState.poolsByComponentName)) {
+                            delete componentPool[hitEntity];
+                        }
                     }
                     
                     if (!!hurtEntityComponents.hurtboxComponent.effectComponent) {

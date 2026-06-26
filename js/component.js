@@ -100,6 +100,7 @@
  * @typedef {Object} HitboxComponent
  * @property {number} radius
  * @property {number} damage
+ * @property {boolean} [deleteOnHit=false]
  */
 
 /**
