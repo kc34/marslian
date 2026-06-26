@@ -164,15 +164,7 @@ class BaseModel {
                     const seed = Math.floor(ageableComponent.age / 5);
                     const dx = Math.sin(seed * seed);
                     const dy = Math.cos(seed * seed);
-                    const slimeId = this.popNextId();
-                    this.setEntityComponents(
-                        slimeId,
-                        {
-                            positionComponent: {x: positionComponent.x + dx * 250, y: positionComponent.y + dy * 250},
-                            sizeComponent: {size: 25},
-                            drawableComponent: {color: "lightgreen", shape: "CIRCLE", label: "slime"},
-                            hurtboxComponent: {radius: 12.5, maxHealth: 10, currentHealth: 10}
-                        });
+                    this.makeEntity("SLIME", {positionComponent: {x: positionComponent.x + dx * 250, y: positionComponent.y + dy * 250}});
                 }
             }
         }
@@ -195,15 +187,9 @@ class BaseModel {
                         const seed = hurtEntityComponents.ageableComponent.age;
                         const dx = Math.sin(seed * seed);
                         const dy = Math.cos(seed * seed);
-                        const slimeId = this.popNextId();
-                        this.setEntityComponents(
-                            slimeId,
-                            {
-                                positionComponent: {x: hurtEntityComponents.positionComponent.x + dx * 250, y: hurtEntityComponents.positionComponent.y + dy * 250},
-                                sizeComponent: {size: 25},
-                                drawableComponent: {color: "lightgreen", shape: "CIRCLE", label: "slime"},
-                                hurtboxComponent: {radius: 12.5, maxHealth: 10, currentHealth: 10}
-                            });
+                        this.makeEntity(
+                            "SLIME",
+                            {positionComponent: {x: hurtEntityComponents.positionComponent.x + dx * 250, y: hurtEntityComponents.positionComponent.y + dy * 250}});
                     }
                 }
                 if (hurtboxComponent.currentHealth <= 0) {
@@ -217,41 +203,24 @@ class BaseModel {
     }
 
     /**
-     * @param {number} x
-     * @param {number} y
-     * @param {number} [size=50]
+     * @param {keyof PREFABS} entityName 
+     * @param {EntityComponents} componentOverrides 
+     * @param {number} [entityIdOverride]
+     * 
+     * @return {number} new Entity ID
      */
-    makePlot(x, y, size = 50) {
-        const plotId = this.popNextId();
-        this.setEntityComponents(
-            plotId,
-            {
-                positionComponent: {x: x, y: y},
-                sizeComponent: {size: size},
-                drawableComponent: {color: "#832a2a", shape: "PLOT", secondColor: "yellow"},
-                ageableComponent: {age: 0},
-                interactableComponent: {giveItem: "CORN"},
-                usableComponent: {behavior: "BUILD"},
-            });
-    }
-
-    /**
-     * @param {number} x
-     * @param {number} y
-     * @param {number} [size=50]
-     */
-    makeTree(x, y, size = 50) {
-        const treeId = this.popNextId();
-        this.setEntityComponents(
-            treeId,
-            {
-                positionComponent: {x: x, y: y},
-                sizeComponent: {size: size},
-                drawableComponent: {color: "brown", shape: "TREE"},
-                ageableComponent: {age: 0},
-                interactableComponent: {giveItem: "WOOD"},
-                usableComponent: {behavior: "BUILD"},
-            });
+    makeEntity(entityName, componentOverrides, entityIdOverride) {
+        let entityId;
+        if (entityIdOverride) {
+            entityId = entityIdOverride;
+        } else {
+            entityId = this.popNextId();
+        }
+        const entityComponents = Fabricator.fabricate(
+            entityName,
+            componentOverrides);
+        this.setEntityComponents(entityId, entityComponents);
+        return entityId;
     }
 
     /** @param {GameEvent} gameEvent */
@@ -272,24 +241,21 @@ class BaseModel {
             // Server reserved Player IDs, but hosts might not, so reserve it again:
             this.gameState.entityIds[gameEvent.newPlayerEvent.playerId] = true;
             this.gameState.entityIds[gameEvent.newPlayerEvent.cameraId] = true;
-            // newPlayerEvent.playerId
-            this.setEntityComponents(
-                gameEvent.newPlayerEvent.playerId,
+            this.makeEntity(
+                "PLAYER",
                 {
                     positionComponent: {x: gameEvent.newPlayerEvent.x, y: gameEvent.newPlayerEvent.y},
-                    sizeComponent: {size: 50},
                     velocityComponent: {x: 0, y: 0},
                     drawableComponent: {color: gameEvent.newPlayerEvent.color, label: gameEvent.newPlayerEvent.label, shape: "CIRCLE"},
-                    usableComponent: {behavior: "BUILD"},
-                    hurtboxComponent: {radius: 12.5, maxHealth: 5000, currentHealth: 5000},
-                });
-            this.setEntityComponents(
-                gameEvent.newPlayerEvent.cameraId,
+                },
+                gameEvent.newPlayerEvent.playerId);
+            this.makeEntity(
+                "CAMERA",
                 {
                     positionComponent: {x: gameEvent.newPlayerEvent.cameraX, y: gameEvent.newPlayerEvent.cameraY},
                     followPlayerComponent: {maxDistanceFromPlayer: 150, followingId: gameEvent.newPlayerEvent.playerId},
-                    usableComponent: {behavior: "BUILD"},
-                });
+                },
+                gameEvent.newPlayerEvent.cameraId);
             this.gameState.playerInventories[gameEvent.newPlayerEvent.playerId] = [-1];
         } else if (!!gameEvent.useEvent) {
             const playerId = gameEvent.useEvent.playerId;
@@ -307,11 +273,9 @@ class BaseModel {
             if (this.gameState.poolsByComponentName.interactableComponents[targetId]?.giveItem !== undefined) {
                 const ageableComponent = this.gameState.poolsByComponentName.ageableComponents[targetId];
                 if (ageableComponent === undefined || ageableComponent.age > 10) {
-                    const itemId = this.popNextId();
-                    const itemComponents = Fabricator.fabricate(
+                    const itemId = this.makeEntity(
                         this.gameState.poolsByComponentName.interactableComponents[targetId].giveItem,
-                        {sizeComponent: {size: this.gameState.poolsByComponentName.sizeComponents[targetId].size}});
-                    this.setEntityComponents(itemId, itemComponents);
+                        {sizeComponent: {size: this.gameState.poolsByComponentName.sizeComponents[targetId].size * (this.gameState.poolsByComponentName.interactableComponents[targetId].sizeRatio || 1)}});
                     this.gameState.playerInventories[gameEvent.useEvent.playerId].push(itemId);
                     if (ageableComponent !== undefined) {
                         ageableComponent.age = 0;
@@ -343,20 +307,16 @@ class BaseModel {
             if (this.gameState.poolsByComponentName.usableComponents[gameEvent.buildEvent.itemId]?.behavior == "BOW") {
                 const playerPositionComponent = this.gameState.poolsByComponentName.positionComponents[gameEvent.buildEvent.playerId];
                 const distance = Math.pow(Math.pow(gameEvent.buildEvent.x - playerPositionComponent.x, 2) + Math.pow(gameEvent.buildEvent.y - playerPositionComponent.y, 2), 0.5); // used for norming
-                const arrow = this.popNextId();
-                this.setEntityComponents(
-                    arrow,
+                this.makeEntity(
+                    "ARROW",
                     {
                         positionComponent: {
                             x: playerPositionComponent.x + (gameEvent.buildEvent.x - playerPositionComponent.x) / distance * 50,
                             y: playerPositionComponent.y + (gameEvent.buildEvent.y - playerPositionComponent.y) / distance * 50},
-                        sizeComponent: {size: 5},
                         velocityComponent: {
                             x: (gameEvent.buildEvent.x - playerPositionComponent.x) / distance * 1000,
                             y: (gameEvent.buildEvent.y - playerPositionComponent.y) / distance * 1000
                         },
-                        drawableComponent: {color: "black", shape: "CIRCLE", label: "pew!"},
-                        hitboxComponent: {radius: 5, damage: 50}
                     });
             } else if (this.gameState.poolsByComponentName.usableComponents[gameEvent.buildEvent.itemId]?.behavior === "BUILD" || this.gameState.poolsByComponentName.usableComponents[gameEvent.buildEvent.itemId]?.behavior === undefined) {
                 // delete from player inventory, and put into world
@@ -397,15 +357,7 @@ class LocalHost extends BaseModel {
         // make a river
         for (let x = -1; x <= 1; x++) {
             for (let y = -25; y <= 25; y++) {
-                const waterId = this.popNextId();
-                this.setEntityComponents(
-                    waterId,
-                    {
-                        positionComponent: {x: 50 * x, y: y * 50},
-                        sizeComponent: {size: 50},
-                        drawableComponent: {color: "#0080ff", shape: "SQUARE"},
-                        usableComponent: {behavior: "BUILD"},
-                    });
+                this.makeEntity("WATER", {positionComponent: {x: x * 50, y: y * 50}});
             }
         }
 
@@ -415,30 +367,14 @@ class LocalHost extends BaseModel {
                 if (x >= -2 && x <= 2) {
                     continue; // draw a bridge here
                 }
-                const roadId = this.popNextId();
-                this.setEntityComponents(
-                    roadId,
-                    {
-                        positionComponent: {x: 50 * x, y: y * 50},
-                        sizeComponent: {size: 50},
-                        drawableComponent: {color: "gray", shape: "SQUARE"},
-                        usableComponent: {behavior: "BUILD"},
-                    });
+                this.makeEntity("ROAD", {positionComponent: {x: x * 50, y: y * 50}});
             }
         }
 
         // bridge
         for (let x = -2; x <= 2; x++) {
             for (let y = -1; y <= 1; y++) {
-                const bridgeId = this.popNextId();
-                this.setEntityComponents(
-                    bridgeId,
-                    {
-                        positionComponent: {x: 50 * x, y: y * 50},
-                        sizeComponent: {size: 50},
-                        drawableComponent: {color: "maroon", shape: "SQUARE"},
-                        usableComponent: {behavior: "BUILD"},
-                    });
+                this.makeEntity("BRIDGE", {positionComponent: {x: x * 50, y: y * 50}});
             }
         }
 
@@ -452,59 +388,32 @@ class LocalHost extends BaseModel {
                     // leave a space for the door
                     continue;
                 }
-                const wallId = this.popNextId();
-                this.setEntityComponents(
-                    wallId,
-                    {
-                        positionComponent: {x: 50 * x, y: y * 50},
-                        sizeComponent: {size: 50},
-                        drawableComponent: {color: "brown", shape: "SQUARE"},
-                        usableComponent: {behavior: "BUILD"},
-                    });
+                this.makeEntity("WALL", {positionComponent: {x: x * 50, y: y * 50}});
             }
         }
 
         for (let x = -11; x <= -9; x++) {
             for (let y = -18; y >= -20; y -= 2) {
-                this.makePlot(x * 50, y * 50);
+                this.makeEntity("PLOT", {positionComponent: {x: x * 50, y: y * 50}});
             }
         }
 
         for (let x = -28; x <= -20; x += 4) {
             for (let y = -14; y <= -6; y += 4) {
-                this.makeTree(x * 50, y * 50, 100);
+                this.makeEntity("TREE", {positionComponent: {x: x * 50, y: y * 50}});
             }
         }
 
 
         // city
-        const workshop = this.popNextId();
-        this.setEntityComponents(
-            workshop,
-            {
-                positionComponent: {x: 10 * 50, y: -5 * 50},
-                sizeComponent: {size: 150},
-                drawableComponent: {color: "beige", shape: "SQUARE", label: "Workshop"},
-                interactableComponent: {giveItem: "BOW"},
-                usableComponent: {behavior: "BUILD"},
-            });
+        this.makeEntity("WORKSHOP", {positionComponent: {x: 10 * 50, y: -5 * 50}});
 
 
         // wilderness
-        this.makePlot(-150, 150, 150);
-        this.makeTree(-350, 150, 150);
+        this.makeEntity("PLOT", {positionComponent: {x: -150, y: 150}, sizeComponent: {size: 150}});
+        this.makeEntity("TREE", {positionComponent: {x: -350, y: 150}, sizeComponent: {size: 150}});
 
-        const slimeSpawner = this.popNextId();
-        this.setEntityComponents(
-            slimeSpawner,
-            {
-                positionComponent: {x: -10 * 50, y: 15 * 50},
-                sizeComponent: {size: 150},
-                drawableComponent: {color: "lightgreen", shape: "CIRCLE", label: "Slime Spawner"},
-                ageableComponent: {age: 0},
-                usableComponent: {behavior: "BUILD"},
-                hurtboxComponent: {radius: 75, maxHealth: 5000, currentHealth: 5000},
-            });
+        this.makeEntity("SLIME_SPAWNER", {positionComponent: {x: -10 * 50, y: 15 * 50}});
     }
 
     tick() {

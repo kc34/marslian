@@ -73,6 +73,7 @@
  * 
  * @typedef {Object} InteractableComponent
  * @property {keyof PREFABS} giveItem
+ * @property {number} [sizeRatio=1]
  */
 
 /**
