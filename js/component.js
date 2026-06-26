@@ -11,6 +11,8 @@
  * @property {Object.<number, HitboxComponent>} hitboxComponents
  * @property {Object.<number, HurtboxComponent>} hurtboxComponents
  * @property {Object.<number, SpawnEffectComponent>} spawnEffectComponents
+ * @property {Object.<number, AlignmentComponent>} alignmentComponents
+ * @property {Object.<number, AIComponent>} aiComponents
  */
 
 /** @typedef {keyof FullComponentPool} ComponentPoolName */
@@ -30,6 +32,8 @@
  * @property {HitboxComponent} [hitboxComponent]
  * @property {HurtboxComponent} [hurtboxComponent]
  * @property {SpawnEffectComponent} [spawnEffectComponent]
+ * @property {AlignmentComponent} [alignmentComponent]
+ * @property {AIComponent} [aiComponent]
  */
 
 /** @typedef {keyof EntityComponents} ComponentName */
@@ -111,6 +115,15 @@
  * @property {keyof PREFABS} spawnEntity
  */
 
+/**
+ * @typedef {Object} AlignmentComponent
+ * @property {"GOOD"|"EVIL"} alignment
+ */
+
+/**
+ * @typedef {Object} AIComponent
+ */
+
 class FullComponentPools {
 
     /** @returns {FullComponentPool} */
@@ -127,6 +140,8 @@ class FullComponentPools {
             hitboxComponents: {},
             hurtboxComponents: {},
             spawnEffectComponents: {},
+            alignmentComponents: {},
+            aiComponents: {},
         }
     }
 }

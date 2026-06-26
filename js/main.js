@@ -119,6 +119,39 @@ class BaseModel {
 
     tick() {
         this.gameState.frameCount += 1;
+
+        // AISystem
+        // Maybe when this becomes more complicated, we should move it server-side and have Events explain what's happening.
+        const aiQuery = this.query(["aiComponent", "alignmentComponent", "positionComponent", "velocityComponent"]);
+        for (const [_, {alignmentComponent, positionComponent, velocityComponent}] of aiQuery) {
+            // find closest target within vision
+            let closestTarget;
+            let closestTargetDistance = 69420;
+            const alignmentQuery = this.query(["alignmentComponent", "positionComponent"]);
+            for (const [targetId, {alignmentComponent: targetAlignmentComponent, positionComponent: targetPositionComponent}] of alignmentQuery) {
+                if (alignmentComponent?.alignment === targetAlignmentComponent.alignment) {
+                    continue;
+                }
+                const distance = Math.pow(Math.pow(positionComponent.x - targetPositionComponent.x, 2) + Math.pow(positionComponent.y - targetPositionComponent.y, 2), 0.5);
+                const vision = 1000;
+                if (distance > vision) {
+                    continue;
+                }
+
+                if (!closestTarget || distance < closestTargetDistance) {
+                    closestTarget = targetId;
+                    closestTargetDistance = distance;
+                }
+            }
+
+            if (closestTarget) {
+                let closestTargetPositionComponent = this.getEntityComponents(closestTarget).positionComponent;
+                velocityComponent.x = (closestTargetPositionComponent.x - positionComponent.x) / closestTargetDistance * 50;
+                velocityComponent.y = (closestTargetPositionComponent.y - positionComponent.y) / closestTargetDistance * 50;
+            }
+        }
+
+
         const velocityEntityQuery = this.query(["velocityComponent", "positionComponent"]);
         for (const [_, {velocityComponent, positionComponent}] of velocityEntityQuery) {
             positionComponent.x += velocityComponent.x * this.TIME_STEP;

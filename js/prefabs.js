@@ -5,6 +5,7 @@ const PREFABS = Object.freeze({
         sizeComponent: {size: 50},
         usableComponent: {behavior: "BUILD"},
         hurtboxComponent: {radius: 12.5, maxHealth: 5000, currentHealth: 5000},
+        alignmentComponent: {alignment: "GOOD"},
     },
     "CAMERA": {
         usableComponent: {behavior: "BUILD"},
@@ -67,9 +68,12 @@ const PREFABS = Object.freeze({
         usableComponent: {behavior: "BUILD"},
     },
     "SLIME": {
+        velocityComponent: {x: 0, y: 0},
         sizeComponent: {size: 25},
         drawableComponent: {color: "lightgreen", shape: "CIRCLE", label: "slime"},
-        hurtboxComponent: {radius: 12.5, maxHealth: 10, currentHealth: 10}
+        hurtboxComponent: {radius: 12.5, maxHealth: 10, currentHealth: 10},
+        alignmentComponent: {alignment: "EVIL"},
+        aiComponent: {},
     },
     "SLIME_SPAWNER": {
         sizeComponent: {size: 150},
