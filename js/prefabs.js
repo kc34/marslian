@@ -28,7 +28,7 @@ const PREFABS = Object.freeze({
         sizeComponent: {size: 50},
         drawableComponent: {color: "#832a2a", shape: "PLOT", secondColor: "yellow"},
         ageableComponent: {age: 0},
-        interactableComponent: {giveItem: "CORN"},
+        interactableComponent: {giveItem: "CORN", sizeRatio: 1},
         usableComponent: {behavior: "BUILD"},
     },
     "TREE": {

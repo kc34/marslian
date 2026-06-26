@@ -258,29 +258,32 @@ class BaseModel {
                 gameEvent.newPlayerEvent.cameraId);
             this.gameState.playerInventories[gameEvent.newPlayerEvent.playerId] = [-1];
         } else if (!!gameEvent.useEvent) {
-            const playerId = gameEvent.useEvent.playerId;
-            const targetId = gameEvent.useEvent.targetId;
+            const targetEntity = this.getEntityComponents(gameEvent.useEvent.targetId);
             // Reject clicks too far away from player.
-            const playerPositionComponent = this.gameState.poolsByComponentName.positionComponents[playerId];
-            const targetPositionComponent = this.gameState.poolsByComponentName.positionComponents[targetId];
-            if (!playerPositionComponent) {
+            const playerPositionComponent = this.gameState.poolsByComponentName.positionComponents[gameEvent.useEvent.playerId];
+            const targetPositionComponent = targetEntity.positionComponent;
+            if (!playerPositionComponent || !targetPositionComponent) {
                 return;
             }
             if (Math.abs(targetPositionComponent.x - playerPositionComponent.x) > 200 || Math.abs(targetPositionComponent.y - playerPositionComponent.y) > 200) {
                 return;
             }
 
-            if (this.gameState.poolsByComponentName.interactableComponents[targetId]?.giveItem !== undefined) {
-                const ageableComponent = this.gameState.poolsByComponentName.ageableComponents[targetId];
-                if (ageableComponent === undefined || ageableComponent.age > 10) {
-                    const itemId = this.makeEntity(
-                        this.gameState.poolsByComponentName.interactableComponents[targetId].giveItem,
-                        {sizeComponent: {size: this.gameState.poolsByComponentName.sizeComponents[targetId].size * (this.gameState.poolsByComponentName.interactableComponents[targetId].sizeRatio || 1)}});
-                    this.gameState.playerInventories[gameEvent.useEvent.playerId].push(itemId);
-                    if (ageableComponent !== undefined) {
-                        ageableComponent.age = 0;
+            if (targetEntity.interactableComponent?.giveItem !== undefined) {
+                const ageableComponent = targetEntity.ageableComponent;
+                if (ageableComponent !== undefined) {
+                    if (ageableComponent.age < 10) {
+                        return;
                     }
+                    ageableComponent.age = 0;
                 }
+
+                let entityComponentOverrides = {};
+                if (targetEntity.interactableComponent.sizeRatio && targetEntity.sizeComponent) {
+                    entityComponentOverrides = {sizeComponent: {size: targetEntity.sizeComponent.size * targetEntity.interactableComponent.sizeRatio}};
+                }
+                const itemId = this.makeEntity(targetEntity.interactableComponent.giveItem, entityComponentOverrides);
+                this.gameState.playerInventories[gameEvent.useEvent.playerId].push(itemId);
             }
         } else if (!!gameEvent.collectEvent) {
             const playerId = gameEvent.collectEvent.playerId;
