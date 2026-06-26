@@ -10,6 +10,7 @@
  * @property {Object.<number, UsableComponent>} usableComponents
  * @property {Object.<number, HitboxComponent>} hitboxComponents
  * @property {Object.<number, HurtboxComponent>} hurtboxComponents
+ * @property {Object.<number, SpawnEffectComponent>} spawnEffectComponents
  */
 
 /** @typedef {keyof FullComponentPool} ComponentPoolName */
@@ -28,9 +29,16 @@
  * @property {UsableComponent} [usableComponent]
  * @property {HitboxComponent} [hitboxComponent]
  * @property {HurtboxComponent} [hurtboxComponent]
+ * @property {SpawnEffectComponent} [spawnEffectComponent]
  */
 
 /** @typedef {keyof EntityComponents} ComponentName */
+
+/**
+ * EffectComponentNames are components that can be triggered by other components.
+ * 
+ * @typedef {"spawnEffectComponent"} EffectComponentName
+ */
 
 /**
  * @typedef {Object} PositionComponent
@@ -66,6 +74,7 @@
 /**
  * @typedef {Object} AgeableComponent
  * @property {number} age
+ * @property {keyof EntityComponents & EffectComponentName} [effectComponent]
  */
 
 /**
@@ -94,6 +103,12 @@
  * @property {number} radius
  * @property {number} maxHealth
  * @property {number} currentHealth
+ * @property {keyof EntityComponents & EffectComponentName} [effectComponent]
+ */
+
+/**
+ * @typedef {Object} SpawnEffectComponent
+ * @property {keyof PREFABS} spawnEntity
  */
 
 class FullComponentPools {
@@ -111,6 +126,7 @@ class FullComponentPools {
             usableComponents: {},
             hitboxComponents: {},
             hurtboxComponents: {},
+            spawnEffectComponents: {},
         }
     }
 }

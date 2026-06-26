@@ -153,52 +153,61 @@ class BaseModel {
 
         // AgeableSystem
         const ageableQuery = this.query(["ageableComponent"]);
-        for (const [entityId, {ageableComponent, positionComponent}] of ageableQuery) {
-            ageableComponent.age += this.TIME_STEP;
+        for (const [entityId, entityComponents] of ageableQuery) {
+            entityComponents.ageableComponent.age += this.TIME_STEP;
 
-            if (!positionComponent) {
-                continue;
-            }
-            if (this.getEntityComponents(entityId).drawableComponent?.label === "Slime Spawner") {
-                if (Math.floor(ageableComponent.age / 5) > Math.floor((ageableComponent.age - this.TIME_STEP) / 5)) {
-                    const seed = Math.floor(ageableComponent.age / 5);
-                    const dx = Math.sin(seed * seed);
-                    const dy = Math.cos(seed * seed);
-                    this.makeEntity("SLIME", {positionComponent: {x: positionComponent.x + dx * 250, y: positionComponent.y + dy * 250}});
+            if (Math.floor(entityComponents.ageableComponent.age / 5) > Math.floor((entityComponents.ageableComponent.age - this.TIME_STEP) / 5)) {
+                if (!!entityComponents.ageableComponent.effectComponent) {
+                    this.handleEffectComponent(entityComponents, entityComponents.ageableComponent.effectComponent);
                 }
             }
         }
 
         const hitboxEntities = this.query(["hitboxComponent", "positionComponent"]);
-        for (const [hitEntity, {hitboxComponent, positionComponent: hitPositionComponent}] of hitboxEntities) {
+        for (const [hitEntity, hitEntityComponents] of hitboxEntities) {
             const hurtboxEntities = this.query(["hurtboxComponent", "positionComponent"]);
-            for (const [hurtEntity, {hurtboxComponent, positionComponent: hurtPositionComponent}] of hurtboxEntities) {
+            for (const [hurtEntity, hurtEntityComponents] of hurtboxEntities) {
                 const distance = 
-                    Math.pow(Math.pow(hurtPositionComponent.x - hitPositionComponent.x, 2) + Math.pow(hurtPositionComponent.y - hitPositionComponent.y, 2), 0.5);
-                if (distance < hurtboxComponent.radius + hitboxComponent.radius) {
-                    hurtboxComponent.currentHealth -= hitboxComponent?.damage;
+                    Math.pow(
+                        Math.pow(hurtEntityComponents.positionComponent.x - hitEntityComponents.positionComponent.x, 2) +
+                        Math.pow(hurtEntityComponents.positionComponent.y - hitEntityComponents.positionComponent.y, 2),
+                        0.5);
+                if (distance < hurtEntityComponents.hurtboxComponent.radius + hitEntityComponents.hitboxComponent.radius) {
+                    hurtEntityComponents.hurtboxComponent.currentHealth -= hitEntityComponents.hitboxComponent?.damage;
                     delete this.gameState.entityIds[hitEntity];
                     for (const [_, componentPool] of Object.entries(this.gameState.poolsByComponentName)) {
                         delete componentPool[hitEntity];
                     }
                     
-                    const hurtEntityComponents = this.getEntityComponents(hurtEntity);
-                    if (hurtEntityComponents.drawableComponent?.label === "Slime Spawner") {
-                        const seed = hurtEntityComponents.ageableComponent.age;
-                        const dx = Math.sin(seed * seed);
-                        const dy = Math.cos(seed * seed);
-                        this.makeEntity(
-                            "SLIME",
-                            {positionComponent: {x: hurtEntityComponents.positionComponent.x + dx * 250, y: hurtEntityComponents.positionComponent.y + dy * 250}});
+                    if (!!hurtEntityComponents.hurtboxComponent.effectComponent) {
+                        this.handleEffectComponent(hurtEntityComponents, hurtEntityComponents.hurtboxComponent.effectComponent);
                     }
                 }
-                if (hurtboxComponent.currentHealth <= 0) {
+                if (hurtEntityComponents.hurtboxComponent.currentHealth <= 0) {
                     delete this.gameState.entityIds[hurtEntity];
                     for (const [_, componentPool] of Object.entries(this.gameState.poolsByComponentName)) {
                         delete componentPool[hurtEntity];
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * @param {EntityComponents} entityComponents 
+     * @param {EffectComponentName} effectComponentName 
+     */
+    handleEffectComponent(entityComponents, effectComponentName) {
+        if (effectComponentName === "spawnEffectComponent") {
+            const seed = entityComponents.ageableComponent.age;
+            const dx = Math.sin(seed * seed);
+            const dy = Math.cos(seed * seed);
+            this.makeEntity(
+                entityComponents.spawnEffectComponent.spawnEntity,
+                {positionComponent: {
+                    x: entityComponents.positionComponent.x + dx * 250,
+                    y: entityComponents.positionComponent.y + dy * 250
+                }});
         }
     }
 

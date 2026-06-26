@@ -1,3 +1,5 @@
+// Uncomment this line to have CheckJS check for correctness.
+// /** @type {Object.<string, EntityComponents>} */
 const PREFABS = Object.freeze({
     "PLAYER": {
         sizeComponent: {size: 50},
@@ -72,9 +74,10 @@ const PREFABS = Object.freeze({
     "SLIME_SPAWNER": {
         sizeComponent: {size: 150},
         drawableComponent: {color: "lightgreen", shape: "CIRCLE", label: "Slime Spawner"},
-        ageableComponent: {age: 0},
+        ageableComponent: {age: 0, effectComponent: "spawnEffectComponent"},
         usableComponent: {behavior: "BUILD"},
-        hurtboxComponent: {radius: 75, maxHealth: 5000, currentHealth: 5000},
+        hurtboxComponent: {radius: 75, maxHealth: 5000, currentHealth: 5000, effectComponent: "spawnEffectComponent"},
+        spawnEffectComponent: {spawnEntity: "SLIME"},
     },
 });
 
