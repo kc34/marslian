@@ -72,7 +72,7 @@
  * Describes what happens if you left-click on this while it is in the world.
  * 
  * @typedef {Object} InteractableComponent
- * @property {"PLOT"|"TREE"|"WORKSHOP"} behavior
+ * @property {keyof PREFABS} giveItem
  */
 
 /**

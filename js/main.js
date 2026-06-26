@@ -1,5 +1,6 @@
 /// <reference path="./component.js" />
 /// <reference path="./packet.js" />
+/// <reference path="./prefabs.js" />
 
 /**
  * Represents an authoritative game state.
@@ -229,7 +230,7 @@ class BaseModel {
                 sizeComponent: {size: size},
                 drawableComponent: {color: "#832a2a", shape: "PLOT", secondColor: "yellow"},
                 ageableComponent: {age: 0},
-                interactableComponent: {behavior: "PLOT"},
+                interactableComponent: {giveItem: "CORN"},
                 usableComponent: {behavior: "BUILD"},
             });
     }
@@ -248,7 +249,7 @@ class BaseModel {
                 sizeComponent: {size: size},
                 drawableComponent: {color: "brown", shape: "TREE"},
                 ageableComponent: {age: 0},
-                interactableComponent: {behavior: "TREE"},
+                interactableComponent: {giveItem: "WOOD"},
                 usableComponent: {behavior: "BUILD"},
             });
     }
@@ -303,44 +304,19 @@ class BaseModel {
                 return;
             }
 
-            if (this.gameState.poolsByComponentName.interactableComponents[targetId]?.behavior == "PLOT") {
+            if (this.gameState.poolsByComponentName.interactableComponents[targetId]?.giveItem !== undefined) {
                 const ageableComponent = this.gameState.poolsByComponentName.ageableComponents[targetId];
-                if (ageableComponent.age > 10) {
-                    const cornId = this.popNextId();
-                    this.setEntityComponents(
-                        cornId,
-                        {
-                            sizeComponent: {size: this.gameState.poolsByComponentName.sizeComponents[targetId].size},
-                            drawableComponent: {color: "yellow", shape: "CIRCLE"},
-                            usableComponent: {behavior: "BUILD"},
-                        });
-                    this.gameState.playerInventories[gameEvent.useEvent.playerId].push(cornId);
-                    ageableComponent.age = 0;
+                if (ageableComponent === undefined || ageableComponent.age > 10) {
+                    const itemId = this.popNextId();
+                    const itemComponents = Fabricator.fabricate(
+                        this.gameState.poolsByComponentName.interactableComponents[targetId].giveItem,
+                        {sizeComponent: {size: this.gameState.poolsByComponentName.sizeComponents[targetId].size}});
+                    this.setEntityComponents(itemId, itemComponents);
+                    this.gameState.playerInventories[gameEvent.useEvent.playerId].push(itemId);
+                    if (ageableComponent !== undefined) {
+                        ageableComponent.age = 0;
+                    }
                 }
-            } else if (this.gameState.poolsByComponentName.interactableComponents[targetId]?.behavior == "TREE") {
-                const ageableComponent = this.gameState.poolsByComponentName.ageableComponents[targetId];
-                if (ageableComponent.age > 10) {
-                    const woodId = this.popNextId();
-                    // trees are big so we make the wood half as big
-                    this.setEntityComponents(
-                        woodId,
-                        {
-                            sizeComponent: {size: this.gameState.poolsByComponentName.sizeComponents[targetId].size / 2},
-                            drawableComponent: {color: "brown", shape: "SQUARE"},
-                            usableComponent: {behavior: "BUILD"},
-                        });
-                    this.gameState.playerInventories[gameEvent.useEvent.playerId].push(woodId);
-                    ageableComponent.age = 0;
-                }
-            } else if (this.gameState.poolsByComponentName.interactableComponents[targetId]?.behavior == "WORKSHOP") {
-                const bowId = this.popNextId();
-                this.setEntityComponents(
-                        bowId,
-                        {
-                            drawableComponent: {color: "black", shape: "?", label: "bow"},
-                            usableComponent: {behavior: "BOW"},
-                        });
-                this.gameState.playerInventories[gameEvent.useEvent.playerId].push(bowId);
             }
         } else if (!!gameEvent.collectEvent) {
             const playerId = gameEvent.collectEvent.playerId;
@@ -509,7 +485,7 @@ class LocalHost extends BaseModel {
                 positionComponent: {x: 10 * 50, y: -5 * 50},
                 sizeComponent: {size: 150},
                 drawableComponent: {color: "beige", shape: "SQUARE", label: "Workshop"},
-                interactableComponent: {behavior: "WORKSHOP"},
+                interactableComponent: {giveItem: "BOW"},
                 usableComponent: {behavior: "BUILD"},
             });
 
