@@ -32,15 +32,17 @@ const PREFABS = Object.freeze({
         sizeComponent: {size: 50},
         drawableComponent: {color: "#832a2a", shape: "PLOT", secondColor: "yellow"},
         ageableComponent: {age: 0},
-        interactableComponent: {giveItem: "CORN", sizeRatio: 1},
+        interactableComponent: {effectComponent: "giveItemEffectComponent"},
         usableComponent: {behavior: "BUILD"},
+        giveItemEffectComponent: {giveItem: "CORN", sizeRatio: 1},
     },
     "TREE": {
         sizeComponent: {size: 100},
         drawableComponent: {color: "brown", shape: "TREE"},
         ageableComponent: {age: 0},
-        interactableComponent: {giveItem: "WOOD", sizeRatio: 0.5},
+        interactableComponent: {effectComponent: "giveItemEffectComponent"},
         usableComponent: {behavior: "BUILD"},
+        giveItemEffectComponent: {giveItem: "WOOD", sizeRatio: 0.5},
     },
     "WATER": {
         sizeComponent: {size: 50},
@@ -65,14 +67,15 @@ const PREFABS = Object.freeze({
     "WORKSHOP": {
         sizeComponent: {size: 150},
         drawableComponent: {color: "beige", shape: "SQUARE", label: "Workshop"},
-        interactableComponent: {giveItem: "BOW"},
+        interactableComponent: {effectComponent: "giveItemEffectComponent"},
         usableComponent: {behavior: "BUILD"},
+        giveItemEffectComponent: {giveItem: "BOW"},
     },
     "SLIME": {
         velocityComponent: {x: 0, y: 0},
         sizeComponent: {size: 25},
         drawableComponent: {color: "lightgreen", shape: "CIRCLE", label: "slime"},
-        hitboxComponent: {radius: 12.5, damage: 1},
+        hitboxComponent: {radius: 12.5, damage: 60},
         hurtboxComponent: {radius: 12.5, maxHealth: 10, currentHealth: 10},
         alignmentComponent: {alignment: "EVIL"},
         aiComponent: {},
@@ -86,6 +89,22 @@ const PREFABS = Object.freeze({
         spawnEffectComponent: {spawnEntity: "SLIME"},
         alignmentComponent: {alignment: "EVIL"},
     },
+    "GUARD_TOWER": {
+        sizeComponent: {size: 150},
+        drawableComponent: {color: "beige", shape: "SQUARE", label: "Guard Tower"},
+        interactableComponent: {effectComponent: "spawnEffectComponent"},
+        usableComponent: {behavior: "BUILD"},
+        spawnEffectComponent: {spawnEntity: "GUARD"},
+    },
+    "GUARD": {
+        velocityComponent: {x: 0, y: 0},
+        sizeComponent: {size: 25},
+        drawableComponent: {color: "beige", shape: "CIRCLE", label: "guard"},
+        hitboxComponent: {radius: 12.5, damage: 60},
+        hurtboxComponent: {radius: 12.5, maxHealth: 100, currentHealth: 100},
+        alignmentComponent: {alignment: "GOOD"},
+        aiComponent: {},
+    }
 });
 
 class Fabricator {

@@ -13,6 +13,7 @@
  * @property {Object.<number, SpawnEffectComponent>} spawnEffectComponents
  * @property {Object.<number, AlignmentComponent>} alignmentComponents
  * @property {Object.<number, AIComponent>} aiComponents
+ * @property {Object.<number, GiveItemEffectComponent>} [giveItemEffectComponents]
  */
 
 /** @typedef {keyof FullComponentPool} ComponentPoolName */
@@ -34,6 +35,7 @@
  * @property {SpawnEffectComponent} [spawnEffectComponent]
  * @property {AlignmentComponent} [alignmentComponent]
  * @property {AIComponent} [aiComponent]
+ * @property {GiveItemEffectComponent} [giveItemEffectComponent]
  */
 
 /** @typedef {keyof EntityComponents} ComponentName */
@@ -41,7 +43,7 @@
 /**
  * EffectComponentNames are components that can be triggered by other components.
  * 
- * @typedef {"spawnEffectComponent"} EffectComponentName
+ * @typedef {"spawnEffectComponent"|"giveItemEffectComponent"} EffectComponentName
  */
 
 /**
@@ -85,8 +87,7 @@
  * Describes what happens if you left-click on this while it is in the world.
  * 
  * @typedef {Object} InteractableComponent
- * @property {keyof PREFABS} giveItem
- * @property {number} [sizeRatio]
+ * @property {keyof EntityComponents & EffectComponentName} [effectComponent]
  */
 
 /**
@@ -101,6 +102,8 @@
  * @property {number} radius
  * @property {number} damage
  * @property {boolean} [deleteOnHit=false]
+ * @property {number} [timeBetweenHits=1]
+ * @property {number} [timeToNextHit=0]
  */
 
 /**
@@ -125,6 +128,12 @@
  * @typedef {Object} AIComponent
  */
 
+/**
+ * @typedef {Object} GiveItemEffectComponent
+ * @property {keyof PREFABS} giveItem
+ * @property {number} [sizeRatio]
+ */
+
 class FullComponentPools {
 
     /** @returns {FullComponentPool} */
@@ -143,6 +152,7 @@ class FullComponentPools {
             spawnEffectComponents: {},
             alignmentComponents: {},
             aiComponents: {},
+            giveItemEffectComponents: {},
         }
     }
 }

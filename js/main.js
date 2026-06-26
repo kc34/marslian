@@ -201,6 +201,11 @@ class BaseModel {
 
         const hitboxEntities = this.query(["hitboxComponent", "positionComponent", "alignmentComponent"]);
         for (const [hitEntity, hitEntityComponents] of hitboxEntities) {
+            if (hitEntityComponents.hitboxComponent?.timeToNextHit && hitEntityComponents.hitboxComponent?.timeToNextHit > 0) {
+                hitEntityComponents.hitboxComponent.timeToNextHit -= this.TIME_STEP;
+                continue;
+            }
+
             const hurtboxEntities = this.query(["hurtboxComponent", "positionComponent", "alignmentComponent"]);
             for (const [hurtEntity, hurtEntityComponents] of hurtboxEntities) {
                 if (hitEntityComponents.alignmentComponent.alignment === hurtEntityComponents.alignmentComponent.alignment) {
@@ -223,6 +228,8 @@ class BaseModel {
                     if (!!hurtEntityComponents.hurtboxComponent.effectComponent) {
                         this.handleEffectComponent(hurtEntityComponents, hurtEntityComponents.hurtboxComponent.effectComponent);
                     }
+
+                    hitEntityComponents.hitboxComponent.timeToNextHit = hitEntityComponents.hitboxComponent.timeBetweenHits || 1;
                 }
                 if (hurtEntityComponents.hurtboxComponent.currentHealth <= 0) {
                     delete this.gameState.entityIds[hurtEntity];
@@ -236,11 +243,13 @@ class BaseModel {
 
     /**
      * @param {EntityComponents} entityComponents 
-     * @param {EffectComponentName} effectComponentName 
+     * @param {EffectComponentName} effectComponentName
+     * @param {number} [playerIdToGiveItem]
      */
-    handleEffectComponent(entityComponents, effectComponentName) {
+    handleEffectComponent(entityComponents, effectComponentName, playerIdToGiveItem) {
         if (effectComponentName === "spawnEffectComponent") {
-            const seed = entityComponents.ageableComponent.age;
+            const ageableComponent = entityComponents.ageableComponent;
+            const seed = ageableComponent?.age || 0;
             const dx = Math.sin(seed * seed);
             const dy = Math.cos(seed * seed);
             this.makeEntity(
@@ -249,6 +258,21 @@ class BaseModel {
                     x: entityComponents.positionComponent.x + dx * 250,
                     y: entityComponents.positionComponent.y + dy * 250
                 }});
+        } else if (effectComponentName === "giveItemEffectComponent") {
+            const ageableComponent = entityComponents.ageableComponent;
+            if (ageableComponent !== undefined) {
+                if (ageableComponent.age < 10) {
+                    return;
+                }
+                ageableComponent.age = 0;
+            }
+
+            let entityComponentOverrides = {};
+            if (entityComponents.giveItemEffectComponent.sizeRatio && entityComponents.sizeComponent) {
+                entityComponentOverrides = {sizeComponent: {size: entityComponents.sizeComponent.size * entityComponents.giveItemEffectComponent.sizeRatio}};
+            }
+            const itemId = this.makeEntity(entityComponents.giveItemEffectComponent.giveItem, entityComponentOverrides);
+            this.gameState.playerInventories[playerIdToGiveItem].push(itemId);
         }
     }
 
@@ -319,21 +343,8 @@ class BaseModel {
                 return;
             }
 
-            if (targetEntity.interactableComponent?.giveItem !== undefined) {
-                const ageableComponent = targetEntity.ageableComponent;
-                if (ageableComponent !== undefined) {
-                    if (ageableComponent.age < 10) {
-                        return;
-                    }
-                    ageableComponent.age = 0;
-                }
-
-                let entityComponentOverrides = {};
-                if (targetEntity.interactableComponent.sizeRatio && targetEntity.sizeComponent) {
-                    entityComponentOverrides = {sizeComponent: {size: targetEntity.sizeComponent.size * targetEntity.interactableComponent.sizeRatio}};
-                }
-                const itemId = this.makeEntity(targetEntity.interactableComponent.giveItem, entityComponentOverrides);
-                this.gameState.playerInventories[gameEvent.useEvent.playerId].push(itemId);
+            if (targetEntity.interactableComponent?.effectComponent) {
+                this.handleEffectComponent(targetEntity, targetEntity.interactableComponent.effectComponent, gameEvent.useEvent.playerId)
             }
         } else if (!!gameEvent.collectEvent) {
             const playerId = gameEvent.collectEvent.playerId;
@@ -460,6 +471,7 @@ class LocalHost extends BaseModel {
 
         // city
         this.makeEntity("WORKSHOP", {positionComponent: {x: 10 * 50, y: -5 * 50}});
+        this.makeEntity("GUARD_TOWER", {positionComponent: {x: 15 * 50, y: -5 * 50}});
 
 
         // wilderness
