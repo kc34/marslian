@@ -81,6 +81,7 @@
  * @typedef {Object} AgeableComponent
  * @property {number} age
  * @property {keyof EntityComponents & EffectComponentName} [effectComponent]
+ * @property {number} timeToEffect
  */
 
 /**
@@ -111,6 +112,7 @@
  * @property {number} radius
  * @property {number} maxHealth
  * @property {number} currentHealth
+ * @property {number} regenRate
  * @property {keyof EntityComponents & EffectComponentName} [effectComponent]
  */
 

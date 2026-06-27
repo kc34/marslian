@@ -192,11 +192,19 @@ class BaseModel {
         for (const [entityId, entityComponents] of ageableQuery) {
             entityComponents.ageableComponent.age += this.TIME_STEP;
 
-            if (Math.floor(entityComponents.ageableComponent.age / 5) > Math.floor((entityComponents.ageableComponent.age - this.TIME_STEP) / 5)) {
-                if (!!entityComponents.ageableComponent.effectComponent) {
+            if (!!entityComponents.ageableComponent.effectComponent &&
+                Math.floor(entityComponents.ageableComponent.age / entityComponents.ageableComponent.timeToEffect) >
+                Math.floor((entityComponents.ageableComponent.age - this.TIME_STEP) / entityComponents.ageableComponent.timeToEffect)) {
                     this.handleEffectComponent(entityComponents, entityComponents.ageableComponent.effectComponent);
-                }
             }
+        }
+
+        const hurtboxQuery = this.query(["hurtboxComponent"]);
+        for (const {hurtboxComponent} of hurtboxQuery.values()) {
+            if (hurtboxComponent.regenRate) {
+                hurtboxComponent.currentHealth += hurtboxComponent.regenRate * this.TIME_STEP;
+            }
+            hurtboxComponent.currentHealth = Math.min(hurtboxComponent.currentHealth, hurtboxComponent.maxHealth);
         }
 
         const hitboxEntities = this.query(["hitboxComponent", "positionComponent", "alignmentComponent"]);
@@ -471,12 +479,12 @@ class LocalHost extends BaseModel {
 
         // city
         this.makeEntity("WORKSHOP", {positionComponent: {x: 10 * 50, y: -5 * 50}});
-        this.makeEntity("GUARD_TOWER", {positionComponent: {x: 15 * 50, y: -5 * 50}});
+        this.makeEntity("GUARD_TOWER", {positionComponent: {x: -10 * 50, y: 3 * 50}});
 
 
         // wilderness
-        this.makeEntity("PLOT", {positionComponent: {x: -150, y: 150}, sizeComponent: {size: 150}});
-        this.makeEntity("TREE", {positionComponent: {x: -350, y: 150}, sizeComponent: {size: 150}});
+        this.makeEntity("PLOT", {positionComponent: {x: -800, y: 150}, sizeComponent: {size: 150}});
+        this.makeEntity("TREE", {positionComponent: {x: -200, y: 150}, sizeComponent: {size: 150}});
 
         this.makeEntity("SLIME_SPAWNER", {positionComponent: {x: -10 * 50, y: 15 * 50}});
     }
