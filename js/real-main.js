@@ -94,7 +94,7 @@ function startHost() {
 
     timerWorker.postMessage("start");
     timerWorker.onmessage = function() {
-        localHost.tick();
+        localHost.tick(1.0 / 60);
     }
 }
 
@@ -102,7 +102,7 @@ function startHost() {
 function startClient(host) {
     var localClient = new LocalClient(host, usernameInput.value, colorPickerInput.value);
     setInterval(function() {
-        localClient.tick();
+        localClient.tick(1.0 / 60);
     }, 1000.0 / 60)
 
     // Need to set the canvas's width and height with this, to avoid stretching the canvas.

@@ -48,7 +48,6 @@ class BaseModel {
         entityIds: {},
         playerInventories: {},
     }
-    TIME_STEP = 1 / 60.0
 
     debugName = "ERROR";
 
@@ -117,7 +116,10 @@ class BaseModel {
         return entityComponents;
     }
 
-    tick() {
+    /**
+     * @param {number} timeStep -- difference in time
+     */
+    tick(timeStep) {
         this.gameState.frameCount += 1;
 
         // AISystem
@@ -157,8 +159,8 @@ class BaseModel {
 
         const velocityEntityQuery = this.query(["velocityComponent", "positionComponent"]);
         for (const [_, {velocityComponent, positionComponent}] of velocityEntityQuery) {
-            positionComponent.x += velocityComponent.x * this.TIME_STEP;
-            positionComponent.y += velocityComponent.y * this.TIME_STEP;
+            positionComponent.x += velocityComponent.x * timeStep;
+            positionComponent.y += velocityComponent.y * timeStep;
         }
 
         // FollowPlayerSystem
@@ -190,11 +192,11 @@ class BaseModel {
         // AgeableSystem
         const ageableQuery = this.query(["ageableComponent"]);
         for (const [entityId, entityComponents] of ageableQuery) {
-            entityComponents.ageableComponent.age += this.TIME_STEP;
+            entityComponents.ageableComponent.age += timeStep;
 
             if (!!entityComponents.ageableComponent.effectComponent &&
                 Math.floor(entityComponents.ageableComponent.age / entityComponents.ageableComponent.timeToEffect) >
-                Math.floor((entityComponents.ageableComponent.age - this.TIME_STEP) / entityComponents.ageableComponent.timeToEffect)) {
+                Math.floor((entityComponents.ageableComponent.age - timeStep) / entityComponents.ageableComponent.timeToEffect)) {
                     this.handleEffectComponent(entityComponents, entityComponents.ageableComponent.effectComponent);
             }
         }
@@ -202,7 +204,7 @@ class BaseModel {
         const hurtboxQuery = this.query(["hurtboxComponent"]);
         for (const {hurtboxComponent} of hurtboxQuery.values()) {
             if (hurtboxComponent.regenRate) {
-                hurtboxComponent.currentHealth += hurtboxComponent.regenRate * this.TIME_STEP;
+                hurtboxComponent.currentHealth += hurtboxComponent.regenRate * timeStep;
             }
             hurtboxComponent.currentHealth = Math.min(hurtboxComponent.currentHealth, hurtboxComponent.maxHealth);
         }
@@ -210,7 +212,7 @@ class BaseModel {
         const hitboxEntities = this.query(["hitboxComponent", "positionComponent", "alignmentComponent"]);
         for (const [hitEntity, hitEntityComponents] of hitboxEntities) {
             if (hitEntityComponents.hitboxComponent?.timeToNextHit && hitEntityComponents.hitboxComponent?.timeToNextHit > 0) {
-                hitEntityComponents.hitboxComponent.timeToNextHit -= this.TIME_STEP;
+                hitEntityComponents.hitboxComponent.timeToNextHit -= timeStep;
                 continue;
             }
 
@@ -489,8 +491,11 @@ class LocalHost extends BaseModel {
         this.makeEntity("SLIME_SPAWNER", {positionComponent: {x: -10 * 50, y: 15 * 50}});
     }
 
-    tick() {
-        super.tick();
+    /**
+     * @param {number} timeStep
+     */
+    tick(timeStep) {
+        super.tick(timeStep);
 
         if (this.gameState.frameCount % 60 == 0) {
             for (const playerId of this.connections.keys()) {
@@ -606,8 +611,9 @@ class LocalClient extends BaseModel {
         }
     }
 
-    tick() {
-        super.tick();
+    /** @param {number} timeStep */
+    tick(timeStep) {
+        super.tick(timeStep);
 
         if (!this.playerId) {
             return;
