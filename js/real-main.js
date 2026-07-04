@@ -1,5 +1,3 @@
-/// <reference path="./main.js" />
-
 /**
  * @type {LocalHost}
  */
