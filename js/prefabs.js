@@ -22,6 +22,10 @@ const PREFABS = Object.freeze({
         drawableComponent: {color: "black", shape: "?", label: "bow"},
         usableComponent: {behavior: "BOW"},
     },
+    "HOE": {
+        drawableComponent: {color: "black", shape: "?", label: "hoe"},
+        usableComponent: {behavior: "HOE"},
+    },
     "ARROW": {
         sizeComponent: {size: 5},
         drawableComponent: {color: "black", shape: "CIRCLE", label: "pew!"},

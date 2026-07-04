@@ -392,10 +392,20 @@ class BaseModel {
                             y: (gameEvent.buildEvent.y - playerPositionComponent.y) / distance * 1000
                         },
                     });
-            } else if (this.gameState.poolsByComponentName.usableComponents[gameEvent.buildEvent.itemId]?.behavior === "BUILD" || this.gameState.poolsByComponentName.usableComponents[gameEvent.buildEvent.itemId]?.behavior === undefined) {
+            } else if (this.gameState.poolsByComponentName.usableComponents[gameEvent.buildEvent.itemId]?.behavior === "BUILD") {
                 // delete from player inventory, and put into world
                 this.gameState.playerInventories[gameEvent.buildEvent.playerId].splice(this.gameState.playerInventories[gameEvent.buildEvent.playerId].indexOf(gameEvent.buildEvent.itemId), 1);
                 this.gameState.poolsByComponentName.positionComponents[gameEvent.buildEvent.itemId] = {x: gameEvent.buildEvent.x, y: gameEvent.buildEvent.y};
+            } else if (this.gameState.poolsByComponentName.usableComponents[gameEvent.buildEvent.itemId]?.behavior === "HOE") {
+                const playerPositionComponent = this.gameState.poolsByComponentName.positionComponents[gameEvent.buildEvent.playerId];
+                const distance = Math.pow(Math.pow(gameEvent.buildEvent.x - playerPositionComponent.x, 2) + Math.pow(gameEvent.buildEvent.y - playerPositionComponent.y, 2), 0.5); // used for norming
+                this.makeEntity(
+                    "PLOT",
+                    {
+                        positionComponent: {
+                            x: gameEvent.buildEvent.x,
+                            y: gameEvent.buildEvent.y}
+                    });
             }
         } else if (!!gameEvent.setPlayerInventoryEvent) {
             this.gameState.playerInventories[gameEvent.setPlayerInventoryEvent.playerId] = gameEvent.setPlayerInventoryEvent.playerInventory;
@@ -481,13 +491,19 @@ class LocalHost extends BaseModel {
 
         // city
         this.makeEntity("WORKSHOP", {positionComponent: {x: 10 * 50, y: -5 * 50}});
-        this.makeEntity("GUARD_TOWER", {positionComponent: {x: -10 * 50, y: 3 * 50}});
+        this.makeEntity("WORKSHOP",
+            {
+                positionComponent: {x: 15 * 50, y: -5 * 50},
+                drawableComponent: {color: "orange", shape: "SQUARE", label: "HOME DEPOT"},
+                giveItemEffectComponent: {giveItem: "HOE"},
+            });
 
 
         // wilderness
         this.makeEntity("PLOT", {positionComponent: {x: -800, y: 150}, sizeComponent: {size: 150}});
         this.makeEntity("TREE", {positionComponent: {x: -200, y: 150}, sizeComponent: {size: 150}});
 
+        this.makeEntity("GUARD_TOWER", {positionComponent: {x: -10 * 50, y: 3 * 50}});
         this.makeEntity("SLIME_SPAWNER", {positionComponent: {x: -10 * 50, y: 15 * 50}});
     }
 
@@ -820,8 +836,8 @@ class LocalClient extends BaseModel {
         }
 
         if (this.pressedKeys.has("Shift".toUpperCase())) {
-            x = Math.round(x / 25) * 25;
-            y = Math.round(y / 25) * 25;
+            x = Math.round(x / 50) * 50;
+            y = Math.round(y / 50) * 50;
         }
         return [x, y];
     }

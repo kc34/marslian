@@ -95,7 +95,7 @@
  * Describes what happens if you left-click while this is in your inventory.
  * 
  * @typedef {Object} UsableComponent
- * @property {"BOW"|"BUILD"} behavior
+ * @property {"BOW"|"BUILD"|"HOE"} behavior
  */
 
 /**
@@ -112,7 +112,7 @@
  * @property {number} radius
  * @property {number} maxHealth
  * @property {number} currentHealth
- * @property {number} regenRate
+ * @property {number} [regenRate]
  * @property {keyof EntityComponents & EffectComponentName} [effectComponent]
  */
 
