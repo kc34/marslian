@@ -14,6 +14,7 @@
  * @property {Object.<number, AlignmentComponent>} alignmentComponents
  * @property {Object.<number, AIComponent>} aiComponents
  * @property {Object.<number, GiveItemEffectComponent>} [giveItemEffectComponents]
+ * @property {Object.<number, StackableComponent>} [stackableComponents]
  */
 
 /** @typedef {keyof FullComponentPool} ComponentPoolName */
@@ -36,6 +37,7 @@
  * @property {AlignmentComponent} [alignmentComponent]
  * @property {AIComponent} [aiComponent]
  * @property {GiveItemEffectComponent} [giveItemEffectComponent]
+ * @property {StackableComponent} [stackableComponent]
  */
 
 /** @typedef {keyof EntityComponents} ComponentName */
@@ -66,9 +68,10 @@
 /**
  * @typedef {Object} DrawableComponent
  * @property {string} color
- * @property {string=} label
- * @property {string=} secondColor
- * @property {"CIRCLE"|"SQUARE"|"TREE"|"PLOT"|"NOPE"|"?"} shape
+ * @property {string} [label]
+ * @property {string} [secondColor]
+ * @property {string} [text]
+ * @property {"CIRCLE"|"SQUARE"|"TREE"|"PLOT"|"TEXT"|"NOPE"} shape
  */
 
 /**
@@ -81,7 +84,7 @@
  * @typedef {Object} AgeableComponent
  * @property {number} age
  * @property {keyof EntityComponents & EffectComponentName} [effectComponent]
- * @property {number} timeToEffect
+ * @property {number} [timeToEffect]
  */
 
 /**
@@ -136,6 +139,11 @@
  * @property {number} [sizeRatio]
  */
 
+/**
+ * @typedef {Object} StackableComponent
+ * @property {number} [count=1]
+ */
+
 class FullComponentPools {
 
     /** @returns {FullComponentPool} */
@@ -155,6 +163,7 @@ class FullComponentPools {
             alignmentComponents: {},
             aiComponents: {},
             giveItemEffectComponents: {},
+            stackableComponents: {},
         }
     }
 }

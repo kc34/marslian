@@ -13,17 +13,18 @@ const PREFABS = Object.freeze({
     "CORN": {
         drawableComponent: {color: "yellow", shape: "CIRCLE"},
         usableComponent: {behavior: "BUILD"},
+        stackableComponent: {count: 1},
     },
     "WOOD": {
         drawableComponent: {color: "brown", shape: "SQUARE"},
         usableComponent: {behavior: "BUILD"},
     },
     "BOW": {
-        drawableComponent: {color: "black", shape: "?", label: "bow"},
+        drawableComponent: {color: "black", shape: "TEXT", label: "bow"},
         usableComponent: {behavior: "BOW"},
     },
     "HOE": {
-        drawableComponent: {color: "black", shape: "?", label: "hoe"},
+        drawableComponent: {color: "black", shape: "TEXT", label: "hoe"},
         usableComponent: {behavior: "HOE"},
     },
     "ARROW": {
@@ -67,6 +68,7 @@ const PREFABS = Object.freeze({
         sizeComponent: {size: 50},
         drawableComponent: {color: "brown", shape: "SQUARE"},
         usableComponent: {behavior: "BUILD"},
+        stackableComponent: {count: 1},
     },
     "WORKSHOP": {
         sizeComponent: {size: 150},
@@ -111,7 +113,7 @@ const PREFABS = Object.freeze({
         hurtboxComponent: {radius: 12.5, maxHealth: 150, currentHealth: 150},
         alignmentComponent: {alignment: "GOOD"},
         aiComponent: {},
-    }
+    },
 });
 
 class Fabricator {

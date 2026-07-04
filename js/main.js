@@ -282,8 +282,40 @@ class BaseModel {
                 entityComponentOverrides = {sizeComponent: {size: entityComponents.sizeComponent.size * entityComponents.giveItemEffectComponent.sizeRatio}};
             }
             const itemId = this.makeEntity(entityComponents.giveItemEffectComponent.giveItem, entityComponentOverrides);
-            this.gameState.playerInventories[playerIdToGiveItem].push(itemId);
+            this.addItemToPlayerInventory(playerIdToGiveItem, itemId);
         }
+    }
+
+    addItemToPlayerInventory(playerId, itemId) {
+        // try to find a stackable identical entity in the user's entity
+        let matchId = undefined;
+        for (const potentialMatchId of this.gameState.playerInventories[playerId]) {
+            console.log("checking match");
+            // copy the potential match
+            const potentialMatch = this.getEntityComponents(potentialMatchId);
+            // if there's no stackable component, quit.
+            if (potentialMatch.stackableComponent === undefined) {
+                continue;
+            }
+            // otherwise, strip its stackable component and see if they align
+            const potentialMatchCopy = JSON.parse(JSON.stringify(potentialMatch));
+            delete potentialMatchCopy["stackableComponent"];
+            const itemCopy = JSON.parse(JSON.stringify(this.getEntityComponents(itemId)));
+            delete itemCopy["stackableComponent"];
+            if (JSON.stringify(potentialMatchCopy) === JSON.stringify(itemCopy)) {
+                matchId = potentialMatchId;
+                break;
+            }
+        }
+
+        if (!!matchId) {
+            const match = this.getEntityComponents(matchId);
+            match.stackableComponent.count += this.getEntityComponents(itemId).stackableComponent?.count || 1;
+            this.deleteEntity(itemId);
+        } else {
+            this.gameState.playerInventories[playerId].push(itemId);
+        }
+
     }
 
     /**
@@ -368,12 +400,13 @@ class BaseModel {
             if (Math.abs(targetPositionComponent.x - playerPositionComponent.x) > 200 || Math.abs(targetPositionComponent.y - playerPositionComponent.y) > 200) {
                 return;
             }
+
             // remove entity from world, and put in player inventory
             delete this.gameState.poolsByComponentName.positionComponents[itemId];
             if (!this.gameState.playerInventories[playerId]) {
                 this.gameState.playerInventories[playerId] = [-1];
             }
-            this.gameState.playerInventories[playerId].push(itemId);
+            this.addItemToPlayerInventory(playerId, itemId);
         } else if (!!gameEvent.buildEvent) {
             // for now, use the buildEvent as the general left-click
             
@@ -733,8 +766,15 @@ class LocalClient extends BaseModel {
         const maxAge = 10;
         const ageRatio = Math.min((age || maxAge) / maxAge, 1);
         if (drawableComponent.shape === 'CIRCLE') {
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 2;
+            ctx.shadowColor = "black";
+
             this.drawCircle(drawableComponent, ctx, screenX, screenY, size);
         } else if (drawableComponent.shape === 'SQUARE') {
+            // squares often represent tiles or walls, which we don't want to shadow over each other
+            // roads/water we might be able to disable, but not clear how to connected walls yet
+
             ctx.beginPath();
             // rect uses the top left corner
             ctx.rect(screenX - size / 2, screenY - size / 2, size, size);
@@ -746,6 +786,10 @@ class LocalClient extends BaseModel {
             ctx.fillStyle = drawableComponent.color;
             ctx.fill();
 
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 2;
+            ctx.shadowColor = "black";
+
             ctx.beginPath();
             ctx.arc(screenX, screenY, size / 2 * ageRatio, 0, 2 * Math.PI);
             ctx.fillStyle = drawableComponent.secondColor || "#ffffff";
@@ -755,6 +799,10 @@ class LocalClient extends BaseModel {
             ctx.rect(screenX - (size / 6), screenY + size / 2, size / 3, - size / 3);
             ctx.fillStyle = drawableComponent.color;
             ctx.fill();
+
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 2;
+            ctx.shadowColor = "black";
 
             ctx.beginPath();
             const radius = (size) / 2 * ageRatio;
@@ -766,10 +814,11 @@ class LocalClient extends BaseModel {
 		    ctx.font = Math.round(size / 2).toString() + "px Courier New";
 		    ctx.fillText("NO", screenX - ctx.measureText("NO").width / 2, screenY);
 		    ctx.fillText("PE", screenX - ctx.measureText("PE").width / 2, screenY + size * 0.45);
-        } else if (drawableComponent.shape === '?') {
+        } else if (drawableComponent.shape === 'TEXT') {
+            const text = drawableComponent.text || "?";
             ctx.fillStyle = drawableComponent.color;
 		    ctx.font = Math.round(size).toString() + "px Courier New";
-		    ctx.fillText("?", screenX - ctx.measureText("?").width / 2, screenY + size * 0.25);
+		    ctx.fillText(text, screenX - ctx.measureText(text).width / 2, screenY + size * 0.25);
         }
 
         this.drawLabel(drawableComponent, ctx, screenX, screenY, size);
@@ -783,6 +832,22 @@ class LocalClient extends BaseModel {
             ctx.fillStyle = "green"
             ctx.fill();
         }
+
+        
+        if (entityComponents.stackableComponent !== undefined && entityComponents.stackableComponent.count != 1) {
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 2;
+            ctx.shadowColor = "black";
+
+            const text = entityComponents.stackableComponent.count?.toString()
+            ctx.fillStyle = "white";
+		    ctx.font = Math.round(size / 2).toString() + "px Courier New";
+		    ctx.fillText(text, screenX + (size / 2) - ctx.measureText(text).width / 2, screenY + (size / 2));
+        }
+
+        // reset shadow in case it was set
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
     }
 
     /**
@@ -808,6 +873,10 @@ class LocalClient extends BaseModel {
      * @param {number} size
      */
     drawLabel(drawableComponent, ctx, screenX, screenY, size) {
+        // reset shadow in case it was set. shadow on label can be distracting
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+
 		ctx.font = "20px Courier New";
         if (!!drawableComponent.label) {
             const textWidth = ctx.measureText(drawableComponent.label);
