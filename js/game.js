@@ -47,29 +47,7 @@ class BaseModel {
      * @returns {Map<number, Omit<EntityComponents, K> & Required<Pick<EntityComponents, K>>>}
      */
     query(componentNames) {
-        /** @type {Map<number, EntityComponents>} */
-        if (componentNames.length == 0) {
-            return new Map();
-        }
-        let entityIds = new Set(Object.keys(this.gameState.poolsByComponentName[/** @type {ComponentPoolName} */ (componentNames[0] + 's')]));
-        for (let i = 1; i < componentNames.length; i++) {
-            entityIds = entityIds.intersection(new Set(Object.keys(this.gameState.poolsByComponentName[/** @type {ComponentPoolName} */ (componentNames[i] + 's')])));
-        }
-        let entityComponents = new Map();
-        for (const entityId of entityIds) {
-            entityComponents.set(parseInt(entityId), this.getEntityComponents(parseInt(entityId)));
-        }
-        return entityComponents;
-    }
-
-    /**
-     * @param {number} entityId 
-     * @param {EntityComponents} entityComponents 
-     */
-    setEntityComponents(entityId, entityComponents) {
-        for (const [componentName, component] of Object.entries(entityComponents)) {
-            this.gameState.poolsByComponentName[/** @type {ComponentPoolName} */ (componentName + 's')][entityId] = component;
-        }
+        return FullComponentPools.query(this.gameState.poolsByComponentName, componentNames);
     }
 
     /**
@@ -77,12 +55,7 @@ class BaseModel {
      * @returns {EntityComponents} 
      */
     getEntityComponents(entityId) {
-        /** @type {EntityComponents} */
-        const entityComponents = {}
-        for (const [componentNamePlural, componentPool] of Object.entries(this.gameState.poolsByComponentName)) {
-            entityComponents[componentNamePlural.slice(0, -1)] = componentPool[entityId];
-        }
-        return entityComponents;
+        return FullComponentPools.getEntityComponents(this.gameState.poolsByComponentName, entityId);
     }
 
     /**
@@ -91,141 +64,37 @@ class BaseModel {
     tick(timeStep) {
         this.gameState.frameCount += 1;
 
-        // AISystem
-        // Maybe when this becomes more complicated, we should move it server-side and have Events explain what's happening.
-        const aiQuery = this.query(["aiComponent", "alignmentComponent", "positionComponent", "velocityComponent"]);
-        for (const [_, {alignmentComponent, positionComponent, velocityComponent}] of aiQuery) {
-            // find closest target within vision
-            let closestTarget;
-            let closestTargetDistance = 69420;
-            const alignmentQuery = this.query(["alignmentComponent", "positionComponent", "hurtboxComponent"]);
-            for (const [targetId, {alignmentComponent: targetAlignmentComponent, positionComponent: targetPositionComponent}] of alignmentQuery) {
-                if (alignmentComponent?.alignment === targetAlignmentComponent.alignment) {
-                    continue;
-                }
-                const distance = Math.pow(Math.pow(positionComponent.x - targetPositionComponent.x, 2) + Math.pow(positionComponent.y - targetPositionComponent.y, 2), 0.5);
-                const vision = 500;
-                if (distance > vision) {
-                    continue;
-                }
+        AISystem.act(this.gameState.poolsByComponentName);
 
-                if (!closestTarget || distance < closestTargetDistance) {
-                    closestTarget = targetId;
-                    closestTargetDistance = distance;
-                }
-            }
+        PhysicsSystem.act(this.gameState.poolsByComponentName, timeStep);
 
-            if (closestTarget) {
-                let closestTargetPositionComponent = this.getEntityComponents(closestTarget).positionComponent;
-                velocityComponent.x = (closestTargetPositionComponent.x - positionComponent.x) / closestTargetDistance * 50;
-                velocityComponent.y = (closestTargetPositionComponent.y - positionComponent.y) / closestTargetDistance * 50;
-            } else {
-                velocityComponent.x = 0;
-                velocityComponent.y = 0;
-            }
+        FollowPlayerSystem.act(this.gameState.poolsByComponentName);
+
+        const ageableTriggers = AgeableSystem.act(this.gameState.poolsByComponentName, timeStep);
+        for (const [entityId, trigger] of ageableTriggers) {
+            this.handleEffectComponent(entityId, trigger);
         }
 
+        HurtboxSystem.act(this.gameState.poolsByComponentName, timeStep);
 
-        const velocityEntityQuery = this.query(["velocityComponent", "positionComponent"]);
-        for (const [_, {velocityComponent, positionComponent}] of velocityEntityQuery) {
-            positionComponent.x += velocityComponent.x * timeStep;
-            positionComponent.y += velocityComponent.y * timeStep;
-        }
-
-        // FollowPlayerSystem
-        const followPlayerEntityQuery = this.query(["followPlayerComponent", "positionComponent"]);
-        for (const [_, {followPlayerComponent, positionComponent}] of followPlayerEntityQuery) {
-            const maxDistanceFromPlayer = followPlayerComponent.maxDistanceFromPlayer;
-            const playerPositionComponent = this.gameState.poolsByComponentName.positionComponents[followPlayerComponent.followingId];
-            if (!playerPositionComponent) {
-                continue;
-            }
-            // Follow player if player leaves box.
-            // I did try a circle at one point, but this was actually much less fun
-            // and made me dizzy. (Basically, if you were on the lower half of the screen
-            // and walked left, you would get pushed up to the middle of the screen.)
-            if (positionComponent.x - playerPositionComponent.x > maxDistanceFromPlayer) {
-                positionComponent.x = playerPositionComponent.x + maxDistanceFromPlayer;
-            }
-            if (positionComponent.x - playerPositionComponent.x < -1 * maxDistanceFromPlayer) {
-                positionComponent.x = playerPositionComponent.x - maxDistanceFromPlayer;
-            }
-            if (positionComponent.y - playerPositionComponent.y > maxDistanceFromPlayer) {
-                positionComponent.y = playerPositionComponent.y + maxDistanceFromPlayer;
-            }
-            if (positionComponent.y - playerPositionComponent.y < -1 * maxDistanceFromPlayer) {
-                positionComponent.y = playerPositionComponent.y - maxDistanceFromPlayer;
-            }
-        }
-
-        // AgeableSystem
-        const ageableQuery = this.query(["ageableComponent"]);
-        for (const [entityId, entityComponents] of ageableQuery) {
-            entityComponents.ageableComponent.age += timeStep;
-
-            if (!!entityComponents.ageableComponent.effectComponent &&
-                Math.floor(entityComponents.ageableComponent.age / entityComponents.ageableComponent.timeToEffect) >
-                Math.floor((entityComponents.ageableComponent.age - timeStep) / entityComponents.ageableComponent.timeToEffect)) {
-                    this.handleEffectComponent(entityComponents, entityComponents.ageableComponent.effectComponent);
-            }
-        }
-
-        const hurtboxQuery = this.query(["hurtboxComponent"]);
-        for (const {hurtboxComponent} of hurtboxQuery.values()) {
-            if (hurtboxComponent.regenRate) {
-                hurtboxComponent.currentHealth += hurtboxComponent.regenRate * timeStep;
-            }
-            hurtboxComponent.currentHealth = Math.min(hurtboxComponent.currentHealth, hurtboxComponent.maxHealth);
-        }
-
-        const hitboxEntities = this.query(["hitboxComponent", "positionComponent", "alignmentComponent"]);
-        for (const [hitEntity, hitEntityComponents] of hitboxEntities) {
-            if (hitEntityComponents.hitboxComponent?.timeToNextHit && hitEntityComponents.hitboxComponent?.timeToNextHit > 0) {
-                hitEntityComponents.hitboxComponent.timeToNextHit -= timeStep;
-                continue;
-            }
-
-            const hurtboxEntities = this.query(["hurtboxComponent", "positionComponent", "alignmentComponent"]);
-            for (const [hurtEntity, hurtEntityComponents] of hurtboxEntities) {
-                if (hitEntityComponents.alignmentComponent.alignment === hurtEntityComponents.alignmentComponent.alignment) {
-                    continue;
-                }
-                const distance = 
-                    Math.pow(
-                        Math.pow(hurtEntityComponents.positionComponent.x - hitEntityComponents.positionComponent.x, 2) +
-                        Math.pow(hurtEntityComponents.positionComponent.y - hitEntityComponents.positionComponent.y, 2),
-                        0.5);
-                if (distance < hurtEntityComponents.hurtboxComponent.radius + hitEntityComponents.hitboxComponent.radius) {
-                    hurtEntityComponents.hurtboxComponent.currentHealth -= hitEntityComponents.hitboxComponent?.damage;
-                    if (hitEntityComponents.hitboxComponent.deleteOnHit) {
-                        delete this.gameState.entityIds[hitEntity];
-                        for (const [_, componentPool] of Object.entries(this.gameState.poolsByComponentName)) {
-                            delete componentPool[hitEntity];
-                        }
-                    }
-                    
-                    if (!!hurtEntityComponents.hurtboxComponent.effectComponent) {
-                        this.handleEffectComponent(hurtEntityComponents, hurtEntityComponents.hurtboxComponent.effectComponent);
-                    }
-
-                    hitEntityComponents.hitboxComponent.timeToNextHit = hitEntityComponents.hitboxComponent.timeBetweenHits || 1;
-                }
-                if (hurtEntityComponents.hurtboxComponent.currentHealth <= 0) {
-                    delete this.gameState.entityIds[hurtEntity];
-                    for (const [_, componentPool] of Object.entries(this.gameState.poolsByComponentName)) {
-                        delete componentPool[hurtEntity];
-                    }
-                }
-            }
+        const hitboxTriggers = HitboxSystem.act(this.gameState.poolsByComponentName, timeStep);
+        for (const [entityId, trigger] of hitboxTriggers) {
+            this.handleEffectComponent(entityId, trigger);
         }
     }
 
     /**
-     * @param {EntityComponents} entityComponents 
-     * @param {EffectComponentName} effectComponentName
+     * @param {number} entityId 
+     * @param {"DELETE" | EffectComponentName} effectComponentName
      * @param {number} [playerIdToGiveItem]
      */
-    handleEffectComponent(entityComponents, effectComponentName, playerIdToGiveItem) {
+    handleEffectComponent(entityId, effectComponentName, playerIdToGiveItem) {
+        if (effectComponentName === "DELETE") {
+            this.deleteEntity(entityId);
+            return;
+        }
+        const entityComponents = FullComponentPools.getEntityComponents(this.gameState.poolsByComponentName, entityId);
+
         if (effectComponentName === "spawnEffectComponent") {
             const ageableComponent = entityComponents.ageableComponent;
             const seed = ageableComponent?.age || 0;
@@ -304,7 +173,7 @@ class BaseModel {
         const entityComponents = Fabricator.fabricate(
             entityName,
             componentOverrides);
-        this.setEntityComponents(entityId, entityComponents);
+        FullComponentPools.setEntityComponents(this.gameState.poolsByComponentName, entityId, entityComponents);
         return entityId;
     }
 
@@ -355,7 +224,7 @@ class BaseModel {
             }
 
             if (targetEntity.interactableComponent?.effectComponent) {
-                this.handleEffectComponent(targetEntity, targetEntity.interactableComponent.effectComponent, gameEvent.useEvent.playerId)
+                this.handleEffectComponent(gameEvent.useEvent.targetId, targetEntity.interactableComponent.effectComponent, gameEvent.useEvent.playerId)
             }
         } else if (!!gameEvent.collectEvent) {
             const playerId = gameEvent.collectEvent.playerId;
@@ -418,6 +287,7 @@ class BaseModel {
 
     /** @param {number} entityId */
     deleteEntity(entityId) {
+        delete this.gameState.entityIds[entityId];
         for (const componentPool of Object.values(this.gameState.poolsByComponentName)) {
             delete componentPool[entityId];
         }
