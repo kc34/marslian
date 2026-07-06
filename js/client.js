@@ -153,22 +153,24 @@ class LocalClient extends BaseModel {
                 sizeComponent.size / scale);
         }
 
-        const playerInventory = this.gameState.playerInventories[this.playerId];
-        for (let i = 0; i < playerInventory.length; i++) {
-            let itemX = canvas.width - 200 - ((playerInventory.length - 1) * 100) + (i * 100) + 50;
-            let itemY = canvas.height - 50;
-            let size = 100;
-            let label = "";
-            if (i == playerInventory.length - 1) {
-                itemX = canvas.width - 100;
-                itemY = canvas.height - 100;
-                size = 200;
-                label = "holding";
+        if (this.playerId) {
+            const playerInventory = this.gameState.playerInventories[this.playerId];
+            for (let i = 0; i < playerInventory.length; i++) {
+                let itemX = canvas.width - 200 - ((playerInventory.length - 1) * 100) + (i * 100) + 50;
+                let itemY = canvas.height - 50;
+                let size = 100;
+                let label = "";
+                if (i == playerInventory.length - 1) {
+                    itemX = canvas.width - 100;
+                    itemY = canvas.height - 100;
+                    size = 200;
+                    label = "holding";
+                }
+                // draw a background square to hold the entity.
+                this.drawCircle({color: "#ffffff", shape: "CIRCLE", label}, ctx, itemX, itemY, size);
+                this.drawLabel({color: "#ffffff", shape: "CIRCLE", label}, ctx, itemX, itemY, size);
+                this.drawEntity(playerInventory[i], ctx, itemX, itemY, size / 2);
             }
-            // draw a background square to hold the entity.
-            this.drawCircle({color: "#ffffff", shape: "CIRCLE", label}, ctx, itemX, itemY, size);
-            this.drawLabel({color: "#ffffff", shape: "CIRCLE", label}, ctx, itemX, itemY, size);
-            this.drawEntity(playerInventory[i], ctx, itemX, itemY, size / 2);
         }
     }
 
@@ -256,7 +258,7 @@ class LocalClient extends BaseModel {
         }
 
         
-        if (entityComponents.stackableComponent !== undefined && entityComponents.stackableComponent.count != 1) {
+        if (entityComponents.stackableComponent?.count !== undefined && entityComponents.stackableComponent.count != 1) {
             ctx.shadowOffsetX = 2;
             ctx.shadowOffsetY = 2;
             ctx.shadowColor = "black";
@@ -414,15 +416,21 @@ class LocalClient extends BaseModel {
         }
 
         if (!reverse) {
-            playerInventory.unshift(playerInventory.pop());
-            // Let the server know so that the refresh doesn't reset it
-            // This might re-broadcast back
-            this.host.handlePacket(this, {gameEvent: {setPlayerInventoryEvent: {playerId: this.playerId, playerInventory}}});
+            const element = playerInventory.pop();
+            if (element) {
+                playerInventory.unshift(element);
+                // Let the server know so that the refresh doesn't reset it
+                // This might re-broadcast back
+                this.host.handlePacket(this, {gameEvent: {setPlayerInventoryEvent: {playerId: this.playerId, playerInventory}}});
+            }
         } else {
-            playerInventory.push(playerInventory.shift());
-            // Let the server know so that the refresh doesn't reset it
-            // This might re-broadcast back
-            this.host.handlePacket(this, {gameEvent: {setPlayerInventoryEvent: {playerId: this.playerId, playerInventory}}});
+            const element = playerInventory.shift();
+            if (element) {
+                playerInventory.push(element);
+                // Let the server know so that the refresh doesn't reset it
+                // This might re-broadcast back
+                this.host.handlePacket(this, {gameEvent: {setPlayerInventoryEvent: {playerId: this.playerId, playerInventory}}});
+            }
         }
     }
 

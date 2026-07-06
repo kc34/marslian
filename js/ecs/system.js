@@ -10,7 +10,7 @@ class AISystem {
         const aiQuery = FullComponentPools.query(componentPool, ["aiComponent", "alignmentComponent", "positionComponent", "velocityComponent"]);
         for (const [_, {alignmentComponent, positionComponent, velocityComponent}] of aiQuery) {
             // find closest target within vision
-            let closestTarget;
+            let closestTargetPositionComponent;
             let closestTargetDistance = 69420;
             const alignmentQuery = FullComponentPools.query(componentPool, ["alignmentComponent", "positionComponent", "hurtboxComponent"]);
             for (const [targetId, {alignmentComponent: targetAlignmentComponent, positionComponent: targetPositionComponent}] of alignmentQuery) {
@@ -23,14 +23,13 @@ class AISystem {
                     continue;
                 }
 
-                if (!closestTarget || distance < closestTargetDistance) {
-                    closestTarget = targetId;
+                if (!closestTargetPositionComponent || distance < closestTargetDistance) {
+                    closestTargetPositionComponent = targetPositionComponent;
                     closestTargetDistance = distance;
                 }
             }
 
-            if (closestTarget) {
-                let closestTargetPositionComponent = FullComponentPools.getEntityComponents(componentPool, closestTarget).positionComponent;
+            if (closestTargetPositionComponent) {
                 velocityComponent.x = (closestTargetPositionComponent.x - positionComponent.x) / closestTargetDistance * 50;
                 velocityComponent.y = (closestTargetPositionComponent.y - positionComponent.y) / closestTargetDistance * 50;
             } else {
@@ -99,12 +98,13 @@ class AgeableSystem {
         let triggers = [];
         const ageableQuery = FullComponentPools.query(componentPool, ["ageableComponent"]);
         for (const [entityId, entityComponents] of ageableQuery) {
+            const ageableComponent = entityComponents.ageableComponent;
             entityComponents.ageableComponent.age += timeStep;
 
-            if (!!entityComponents.ageableComponent.effectComponent &&
-                Math.floor(entityComponents.ageableComponent.age / entityComponents.ageableComponent.timeToEffect) >
-                Math.floor((entityComponents.ageableComponent.age - timeStep) / entityComponents.ageableComponent.timeToEffect)) {
-                    triggers.push([entityId, entityComponents.ageableComponent.effectComponent]);
+            if (!!ageableComponent.effectComponent
+                && !!ageableComponent.timeToEffect
+                && Math.floor(ageableComponent.age / ageableComponent.timeToEffect) > Math.floor((ageableComponent.age - timeStep) / ageableComponent.timeToEffect)) {
+                    triggers.push([entityId, ageableComponent.effectComponent]);
             }
         }
 

@@ -146,8 +146,16 @@
  * @property {number} [count=1]
  */
 
+/**
+ * Utility class for working with a full set of ComponentPools.
+ */
 class FullComponentPools {
-    /** @returns {FullComponentPool} */
+
+    /**
+     * Returns a full set of empty ComponentPools.
+     * 
+     * @returns {FullComponentPool}
+     */
     static newComponentPool() {
         return {
             positionComponents: {},
@@ -169,20 +177,29 @@ class FullComponentPools {
     }
 
     /**
+     * Given a full set of ComponentPools and a list of EntityComponent names,
+     * filters for entities containing all of those components, and returns
+     * those components indexed by Entity ID.
+     * 
      * @template {keyof EntityComponents} K
      * @param {FullComponentPool} componentPools
      * @param {K[]} componentNames
      * @returns {Map<number, Omit<EntityComponents, K> & Required<Pick<EntityComponents, K>>>}
      */
     static query(componentPools, componentNames) {
-        /** @type {Map<number, EntityComponents>} */
-        if (componentNames.length == 0) {
-            return new Map();
+        let entityIds = new Set();
+        for (let i = 0; i < componentNames.length; i++) {
+            const componentPoolName = /** @type {ComponentPoolName} */ (componentNames[i] + 's');
+            const componentPool = /** @type {Object.<number, Object>} */ (componentPools[componentPoolName]);
+            const newEntityIds = new Set(Object.keys(componentPool));
+
+            if (i === 0) {
+                entityIds = newEntityIds;
+            } else {
+                entityIds = entityIds.intersection(newEntityIds);
+            }
         }
-        let entityIds = new Set(Object.keys(componentPools[/** @type {ComponentPoolName} */ (componentNames[0] + 's')]));
-        for (let i = 1; i < componentNames.length; i++) {
-            entityIds = entityIds.intersection(new Set(Object.keys(componentPools[/** @type {ComponentPoolName} */ (componentNames[i] + 's')])));
-        }
+
         let entityComponents = new Map();
         for (const entityId of entityIds) {
             entityComponents.set(parseInt(entityId), this.getEntityComponents(componentPools, parseInt(entityId)));
@@ -191,17 +208,25 @@ class FullComponentPools {
     }
 
     /**
-     * @param {FullComponentPool} componentPool
+     * Given a full set of ComponentPools, an Entity ID, and an
+     * EntityComponents object, puts each component in the right pool.
+     * 
+     * @param {FullComponentPool} componentPools
      * @param {number} entityId 
      * @param {EntityComponents} entityComponents 
      */
-    static setEntityComponents(componentPool, entityId, entityComponents) {
+    static setEntityComponents(componentPools, entityId, entityComponents) {
         for (const [componentName, component] of Object.entries(entityComponents)) {
-            componentPool[/** @type {ComponentPoolName} */ (componentName + 's')][entityId] = component;
+            const componentPoolName = /** @type {ComponentPoolName} */ (componentName + 's');
+            const componentPool = /** @type {Object.<number, Object>} */ (componentPools[componentPoolName]);
+            componentPool[entityId] = component;
         }
     }
 
     /**
+     * Given a full set of ComponentPools and an EntityId, gets each
+     * component and returns an EntityComponents object.
+     * 
      * @param {FullComponentPool} componentPools
      * @param {number} entityId 
      * @returns {EntityComponents} 
@@ -209,8 +234,9 @@ class FullComponentPools {
     static getEntityComponents(componentPools, entityId) {
         /** @type {EntityComponents} */
         const entityComponents = {}
-        for (const [componentNamePlural, componentPool] of Object.entries(componentPools)) {
-            entityComponents[componentNamePlural.slice(0, -1)] = componentPool[entityId];
+        for (const [componentPoolName, componentPool] of Object.entries(componentPools)) {
+            const componentName = /** @type {ComponentName} */ (componentPoolName.slice(0, -1));
+            entityComponents[componentName] = componentPool[entityId];
         }
         return entityComponents;
     }

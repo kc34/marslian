@@ -97,6 +97,9 @@ class BaseModel {
 
         if (effectComponentName === "spawnEffectComponent") {
             const ageableComponent = entityComponents.ageableComponent;
+            if (!entityComponents.spawnEffectComponent || !entityComponents.positionComponent) {
+                return;
+            }
             const seed = ageableComponent?.age || 0;
             const dx = Math.sin(seed * seed);
             const dy = Math.cos(seed * seed);
@@ -107,6 +110,10 @@ class BaseModel {
                     y: entityComponents.positionComponent.y + dy * 250
                 }});
         } else if (effectComponentName === "giveItemEffectComponent") {
+            if (!entityComponents.giveItemEffectComponent || playerIdToGiveItem === undefined) {
+                return;
+            }
+
             const ageableComponent = entityComponents.ageableComponent;
             if (ageableComponent !== undefined) {
                 if (ageableComponent.age < 10) {
@@ -124,11 +131,14 @@ class BaseModel {
         }
     }
 
+    /**
+     * @param {number} playerId 
+     * @param {number} itemId 
+     */
     addItemToPlayerInventory(playerId, itemId) {
         // try to find a stackable identical entity in the user's entity
         let matchId = undefined;
         for (const potentialMatchId of this.gameState.playerInventories[playerId]) {
-            console.log("checking match");
             // copy the potential match
             const potentialMatch = this.getEntityComponents(potentialMatchId);
             // if there's no stackable component, quit.
@@ -147,8 +157,13 @@ class BaseModel {
         }
 
         if (!!matchId) {
+            const item = this.getEntityComponents(itemId);
             const match = this.getEntityComponents(matchId);
-            match.stackableComponent.count += this.getEntityComponents(itemId).stackableComponent?.count || 1;
+            if (!item.stackableComponent || !match.stackableComponent) {
+                return;
+            }
+            match.stackableComponent.count = match.stackableComponent.count || 1;
+            match.stackableComponent.count += item.stackableComponent.count || 1;
             this.deleteEntity(itemId);
         } else {
             this.gameState.playerInventories[playerId].push(itemId);
