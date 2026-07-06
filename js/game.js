@@ -253,6 +253,9 @@ class BaseModel {
             if (Math.abs(targetPositionComponent.x - playerPositionComponent.x) > 200 || Math.abs(targetPositionComponent.y - playerPositionComponent.y) > 200) {
                 return;
             }
+            if (!this.gameState.poolsByComponentName.collectableComponents[itemId]) {
+                return;
+            }
 
             // remove entity from world, and put in player inventory
             delete this.gameState.poolsByComponentName.positionComponents[itemId];

@@ -15,8 +15,9 @@
  * @property {Object.<number, SpawnEffectComponent>} spawnEffectComponents
  * @property {Object.<number, AlignmentComponent>} alignmentComponents
  * @property {Object.<number, AIComponent>} aiComponents
- * @property {Object.<number, GiveItemEffectComponent>} [giveItemEffectComponents]
- * @property {Object.<number, StackableComponent>} [stackableComponents]
+ * @property {Object.<number, GiveItemEffectComponent>} giveItemEffectComponents
+ * @property {Object.<number, StackableComponent>} stackableComponents
+ * @property {Object.<number, CollectableComponent>} collectableComponents
  */
 
 /** @typedef {keyof FullComponentPool} ComponentPoolName */
@@ -40,6 +41,7 @@
  * @property {AIComponent} [aiComponent]
  * @property {GiveItemEffectComponent} [giveItemEffectComponent]
  * @property {StackableComponent} [stackableComponent]
+ * @property {CollectableComponent} [collectableComponent]
  */
 
 /** @typedef {keyof EntityComponents} ComponentName */
@@ -147,6 +149,10 @@
  */
 
 /**
+ * @typedef {Object} CollectableComponent
+ */
+
+/**
  * Utility class for working with a full set of ComponentPools.
  */
 class FullComponentPools {
@@ -173,6 +179,7 @@ class FullComponentPools {
             aiComponents: {},
             giveItemEffectComponents: {},
             stackableComponents: {},
+            collectableComponents: {},
         }
     }
 

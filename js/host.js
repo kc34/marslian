@@ -107,7 +107,7 @@ class LocalHost extends BaseModel {
                     // leave a space for the door
                     continue;
                 }
-                this.makeEntity("WALL", {positionComponent: {x: x * 50, y: y * 50}});
+                this.makeEntity("WOOD", {positionComponent: {x: x * 50, y: y * 50}});
             }
         }
 
