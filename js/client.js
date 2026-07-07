@@ -84,18 +84,27 @@ class LocalClient extends BaseModel {
 
     /** @param {number} timeStep */
     tick(timeStep) {
+        let initialPosition;
+        if (this.playerId) {
+            const playerPositionComponent = this.gameState.poolsByComponentName.positionComponents[this.playerId];
+            initialPosition = {x: playerPositionComponent.x, y: playerPositionComponent.y};
+        }
+
         super.tick(timeStep);
 
         if (!this.playerId) {
             return;
         }
 
+        const playerPositionComponent = this.gameState.poolsByComponentName.positionComponents[this.playerId];
+        if (initialPosition?.x != playerPositionComponent.x || initialPosition?.y != playerPositionComponent.y) {
+            this.host.handlePacket(this, {gameEvent: {moveEvent: {playerId: this.playerId, x: playerPositionComponent.x, y: playerPositionComponent.y}}});
+        }
+
         const playerVelocityComponent = this.gameState.poolsByComponentName.velocityComponents[this.playerId];
         if (!playerVelocityComponent) {
             console.log("player velocity component not found!");
         } else {
-            const initialVelocity = {x: playerVelocityComponent.x, y: playerVelocityComponent.y}
-            // ControllableSystem
             if (this.pressedKeys.has("W")) {
                 playerVelocityComponent.y = 125;
             } else if (this.pressedKeys.has("S")) {
@@ -114,9 +123,7 @@ class LocalClient extends BaseModel {
                 playerVelocityComponent.x *= 2;
                 playerVelocityComponent.y *= 2;
             }
-            if (initialVelocity.x != playerVelocityComponent.x || initialVelocity.y != playerVelocityComponent.y) {
-                this.host.handlePacket(this, {gameEvent: {velocityChangeEvent: {playerId: this.playerId, x: playerVelocityComponent.x, y: playerVelocityComponent.y}}});
-            }
+
         }
     }
 

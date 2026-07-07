@@ -3,7 +3,6 @@
  * @typedef {Object} GameEvent
  * @property {NewPlayerEvent=} newPlayerEvent
  * @property {MoveEvent=} moveEvent
- * @property {VelocityChangeEvent=} velocityChangeEvent
  * @property {UseEvent=} useEvent
  * @property {UseAtPointEvent=} useAtPointEvent
  * @property {CollectEvent=} collectEvent
@@ -25,13 +24,6 @@
 
 /**
  * @typedef {Object} MoveEvent
- * @property {number} playerId
- * @property {number} x
- * @property {number} y
- */
-
-/**
- * @typedef {Object} VelocityChangeEvent
  * @property {number} playerId
  * @property {number} x
  * @property {number} y

@@ -225,12 +225,6 @@ class BaseModel {
                 playerPositionComponent.x = gameEvent.moveEvent.x;
                 playerPositionComponent.y = gameEvent.moveEvent.y;
             }
-        } else if (!!gameEvent.velocityChangeEvent) {
-            const playerPositionComponent = this.gameState.poolsByComponentName.velocityComponents[gameEvent.velocityChangeEvent.playerId];
-            if (playerPositionComponent) {
-                playerPositionComponent.x = gameEvent.velocityChangeEvent.x;
-                playerPositionComponent.y = gameEvent.velocityChangeEvent.y;
-            }
         } else if (!!gameEvent.newPlayerEvent) {
             // Server reserved Player IDs, but hosts might not, so reserve it again:
             this.gameState.entityIds[gameEvent.newPlayerEvent.playerId] = true;
