@@ -1,6 +1,9 @@
 // Uncomment this line to have CheckJS check for correctness.
 /** @type {Object.<string, EntityComponents>} */
 const PREFABS = Object.freeze({
+    "NONE": {
+        // idk
+    },
     "PLAYER": {
         alignmentComponent: {alignment: "GOOD"},
         collectableComponent: {}, // probably shouldn't be here but it's really funny
@@ -33,6 +36,7 @@ const PREFABS = Object.freeze({
         usableComponent: {behavior: "HOE"},
     },
     "ARROW": {
+        ageableComponent: {age: 0, effectName: EffectName.DEATH, timeToEffect: 1},
         alignmentComponent: {alignment: "GOOD"},
         drawableComponent: {color: "black", shape: "CIRCLE", label: "pew!"},
         hitboxComponent: {radius: 5, damage: 50, deleteOnHit: true},

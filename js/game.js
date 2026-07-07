@@ -6,6 +6,7 @@
  * @property {Object<number, Array<number>>} playerInventories
  * @property {boolean} everythingCollectable
  * @property {boolean} everythingPlantable
+ * @property {boolean} everythingStackable
  */
 
 /**
@@ -22,6 +23,7 @@ class BaseModel {
         // Funny stupid debug options
         everythingCollectable: true,
         everythingPlantable: true,
+        everythingStackable: true,
     }
 
     debugName = "ERROR";
@@ -129,19 +131,19 @@ class BaseModel {
      */
     addItemToPlayerInventory(playerId, itemId) {
         // try to find a stackable identical entity in the user's entity
+        const itemCopy = JSON.parse(JSON.stringify(this.getEntityComponents(itemId)));
+        delete itemCopy["stackableComponent"];
         let matchId = undefined;
         for (const potentialMatchId of this.gameState.playerInventories[playerId]) {
             // copy the potential match
             const potentialMatch = this.getEntityComponents(potentialMatchId);
             // if there's no stackable component, quit.
-            if (potentialMatch.stackableComponent === undefined) {
+            if (!this.gameState.everythingStackable && potentialMatch.stackableComponent === undefined) {
                 continue;
             }
             // otherwise, strip its stackable component and see if they align
             const potentialMatchCopy = JSON.parse(JSON.stringify(potentialMatch));
             delete potentialMatchCopy["stackableComponent"];
-            const itemCopy = JSON.parse(JSON.stringify(this.getEntityComponents(itemId)));
-            delete itemCopy["stackableComponent"];
             if (JSON.stringify(potentialMatchCopy) === JSON.stringify(itemCopy)) {
                 matchId = potentialMatchId;
                 break;
@@ -149,18 +151,49 @@ class BaseModel {
         }
 
         if (!!matchId) {
-            const item = this.getEntityComponents(itemId);
-            const match = this.getEntityComponents(matchId);
-            if (!item.stackableComponent || !match.stackableComponent) {
-                return;
+            let itemStackableComponent = this.getEntityComponents(itemId).stackableComponent;
+            let matchStackableComponent = this.getEntityComponents(matchId).stackableComponent;
+            if (!itemStackableComponent || !matchStackableComponent) {
+                if (!this.gameState.everythingStackable) {
+                    return;
+                }
+                if (!itemStackableComponent) {
+                    itemStackableComponent = {count: 1};
+                    FullComponentPools.setEntityComponents(this.gameState.poolsByComponentName, itemId, {stackableComponent: itemStackableComponent});
+                }
+                if (!matchStackableComponent) {
+                    matchStackableComponent = {count: 1};
+                    FullComponentPools.setEntityComponents(this.gameState.poolsByComponentName, matchId, {stackableComponent: matchStackableComponent});
+                }
             }
-            match.stackableComponent.count = match.stackableComponent.count || 1;
-            match.stackableComponent.count += item.stackableComponent.count || 1;
+
+            // increment the match counter, and destroy the old entity
+            matchStackableComponent.count = (matchStackableComponent.count || 1) + (itemStackableComponent.count || 1);
             this.deleteEntity(itemId);
         } else {
             this.gameState.playerInventories[playerId].push(itemId);
         }
 
+    }
+
+    /**
+     * @param {number} playerId 
+     * @param {number} itemId 
+     */
+    removeItemFromPlayerInventory(playerId, itemId) {
+        const item = FullComponentPools.getEntityComponents(this.gameState.poolsByComponentName, itemId);
+        if (item.stackableComponent) {
+            const count = item.stackableComponent.count || 1;
+            if (count > 1) {
+                const itemCopy = JSON.parse(JSON.stringify(item));
+                item.stackableComponent.count = count - 1;
+                itemCopy.stackableComponent.count = 1;
+                return this.makeEntity("NONE", itemCopy);
+            }
+        }
+
+        this.gameState.playerInventories[playerId].splice(this.gameState.playerInventories[playerId].indexOf(itemId), 1);
+        return itemId;
     }
 
     /**
@@ -240,9 +273,8 @@ class BaseModel {
                         } else {
                             const playerHoldingId = gameEvent.useEvent.playerHoldingId;
                             if (playerHoldingId && (this.gameState.everythingPlantable || this.gameState.poolsByComponentName.plantableComponents[playerHoldingId])) {
-                                // delete from player inventory, and put into plot
-                                this.gameState.playerInventories[playerId].splice(this.gameState.playerInventories[playerId].indexOf(playerHoldingId), 1);
-                                targetEntity.dirtComponent.plantableId = playerHoldingId;
+                                const removedItemId = this.removeItemFromPlayerInventory(playerId, playerHoldingId);
+                                targetEntity.dirtComponent.plantableId = removedItemId;
                             }
                         }
                     }
@@ -318,9 +350,8 @@ class BaseModel {
                             y: gameEvent.buildEvent.y}
                     });
             } else if (this.gameState.poolsByComponentName.usableComponents[gameEvent.buildEvent.itemId]?.behavior === "BUILD" || this.gameState.everythingCollectable) {
-                // delete from player inventory, and put into world
-                this.gameState.playerInventories[gameEvent.buildEvent.playerId].splice(this.gameState.playerInventories[gameEvent.buildEvent.playerId].indexOf(gameEvent.buildEvent.itemId), 1);
-                this.gameState.poolsByComponentName.positionComponents[gameEvent.buildEvent.itemId] = {x: gameEvent.buildEvent.x, y: gameEvent.buildEvent.y};
+                const itemId = this.removeItemFromPlayerInventory(gameEvent.buildEvent.playerId, gameEvent.buildEvent.itemId);
+                this.gameState.poolsByComponentName.positionComponents[itemId] = {x: gameEvent.buildEvent.x, y: gameEvent.buildEvent.y};
             } 
         } else if (!!gameEvent.setPlayerInventoryEvent) {
             this.gameState.playerInventories[gameEvent.setPlayerInventoryEvent.playerId] = gameEvent.setPlayerInventoryEvent.playerInventory;
