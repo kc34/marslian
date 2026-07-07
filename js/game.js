@@ -238,27 +238,31 @@ class BaseModel {
                 gameEvent.newPlayerEvent.cameraId);
             this.gameState.playerInventories[gameEvent.newPlayerEvent.playerId] = [-1];
         } else if (!!gameEvent.useEvent) {
-            const targetEntity = this.getEntityComponents(gameEvent.useEvent.targetId);
             // Reject clicks too far away from player.
-            const playerPositionComponent = this.gameState.poolsByComponentName.positionComponents[gameEvent.useEvent.playerId];
-            const targetPositionComponent = targetEntity.positionComponent;
-            if (!playerPositionComponent || !targetPositionComponent) {
-                return;
-            }
-            if (Math.abs(targetPositionComponent.x - playerPositionComponent.x) > 200 || Math.abs(targetPositionComponent.y - playerPositionComponent.y) > 200) {
+            const playerId = gameEvent.useEvent.playerId;
+            const playerEntity = this.getEntityComponents(playerId);
+            const targetId = gameEvent.useEvent.targetId;
+            const targetEntity = this.getEntityComponents(targetId);
+            if (!playerEntity.positionComponent
+                || !targetEntity.positionComponent
+                || Math.abs(targetEntity.positionComponent.x - playerEntity.positionComponent.x) > 200
+                || Math.abs(targetEntity.positionComponent.y - playerEntity.positionComponent.y) > 200) {
                 return;
             }
 
             if (targetEntity.interactableComponent?.effectComponent) {
                 if (targetEntity.interactableComponent?.effectComponent === "PLANT") {
-                    if (this.gameState.poolsByComponentName.dirtComponents[gameEvent.useEvent.targetId].plantableId) {
-                        this.addItemToPlayerInventory(gameEvent.useEvent.playerId, this.gameState.poolsByComponentName.dirtComponents[gameEvent.useEvent.targetId].plantableId);
-                        this.gameState.poolsByComponentName.dirtComponents[gameEvent.useEvent.targetId].plantableId = undefined;
-                    } else {
-                        if (gameEvent.useEvent.playerHoldingId && (this.gameState.everythingPlantable || this.gameState.poolsByComponentName.plantableComponents[gameEvent.useEvent.playerHoldingId])) {
-                            // delete from player inventory, and put into plot
-                            this.gameState.playerInventories[gameEvent.useEvent.playerId].splice(this.gameState.playerInventories[gameEvent.useEvent.playerId].indexOf(gameEvent.useEvent.playerHoldingId), 1);
-                            this.gameState.poolsByComponentName.dirtComponents[gameEvent.useEvent.targetId].plantableId = gameEvent.useEvent.playerHoldingId;
+                    if (targetEntity.dirtComponent) {
+                        if (targetEntity.dirtComponent?.plantableId) {
+                            this.addItemToPlayerInventory(gameEvent.useEvent.playerId, targetEntity.dirtComponent.plantableId);
+                            targetEntity.dirtComponent.plantableId = undefined;
+                        } else {
+                            const playerHoldingId = gameEvent.useEvent.playerHoldingId;
+                            if (playerHoldingId && (this.gameState.everythingPlantable || this.gameState.poolsByComponentName.plantableComponents[playerHoldingId])) {
+                                // delete from player inventory, and put into plot
+                                this.gameState.playerInventories[playerId].splice(this.gameState.playerInventories[playerId].indexOf(playerHoldingId), 1);
+                                targetEntity.dirtComponent.plantableId = playerHoldingId;
+                            }
                         }
                     }
                 } else {
