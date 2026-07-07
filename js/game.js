@@ -87,6 +87,8 @@ class BaseModel {
         for (const [entityId, trigger] of hitboxTriggers) {
             this.handleEffectComponent(entityId, trigger);
         }
+
+        DirtSystem.act(this.gameState.poolsByComponentName, timeStep);
     }
 
     /**
@@ -249,12 +251,16 @@ class BaseModel {
 
             if (targetEntity.interactableComponent?.effectComponent) {
                 if (targetEntity.interactableComponent?.effectComponent === "PLANT") {
-                    if (gameEvent.useEvent.playerHoldingId && (this.gameState.everythingPlantable || this.gameState.poolsByComponentName.plantableComponents[gameEvent.useEvent.playerHoldingId])) {
-                        // delete from player inventory, and put into plot
-                        this.gameState.playerInventories[gameEvent.useEvent.playerId].splice(this.gameState.playerInventories[gameEvent.useEvent.playerId].indexOf(gameEvent.useEvent.playerHoldingId), 1);
-                        this.gameState.poolsByComponentName.dirtComponents[gameEvent.useEvent.targetId].plantableId = gameEvent.useEvent.playerHoldingId;
+                    if (this.gameState.poolsByComponentName.dirtComponents[gameEvent.useEvent.targetId].plantableId) {
+                        this.addItemToPlayerInventory(gameEvent.useEvent.playerId, this.gameState.poolsByComponentName.dirtComponents[gameEvent.useEvent.targetId].plantableId);
+                        this.gameState.poolsByComponentName.dirtComponents[gameEvent.useEvent.targetId].plantableId = undefined;
+                    } else {
+                        if (gameEvent.useEvent.playerHoldingId && (this.gameState.everythingPlantable || this.gameState.poolsByComponentName.plantableComponents[gameEvent.useEvent.playerHoldingId])) {
+                            // delete from player inventory, and put into plot
+                            this.gameState.playerInventories[gameEvent.useEvent.playerId].splice(this.gameState.playerInventories[gameEvent.useEvent.playerId].indexOf(gameEvent.useEvent.playerHoldingId), 1);
+                            this.gameState.poolsByComponentName.dirtComponents[gameEvent.useEvent.targetId].plantableId = gameEvent.useEvent.playerHoldingId;
+                        }
                     }
-
                 } else {
                     this.handleEffectComponent(gameEvent.useEvent.targetId, targetEntity.interactableComponent.effectComponent, gameEvent.useEvent.playerId);
                 }
@@ -303,7 +309,7 @@ class BaseModel {
                 const playerPositionComponent = this.gameState.poolsByComponentName.positionComponents[gameEvent.buildEvent.playerId];
                 const distance = Math.pow(Math.pow(gameEvent.buildEvent.x - playerPositionComponent.x, 2) + Math.pow(gameEvent.buildEvent.y - playerPositionComponent.y, 2), 0.5); // used for norming
                 this.makeEntity(
-                    "PLOT2",
+                    "PLOT",
                     {
                         positionComponent: {
                             x: gameEvent.buildEvent.x,

@@ -39,14 +39,6 @@ const PREFABS = Object.freeze({
         sizeComponent: {size: 5},
     },
     "PLOT": {
-        ageableComponent: {age: 0},
-        drawableComponent: {color: "#832a2a", shape: "PLOT", secondColor: "yellow"},
-        giveItemEffectComponent: {giveItem: "CORN", sizeRatio: 1},
-        interactableComponent: {effectComponent: "giveItemEffectComponent"},
-        sizeComponent: {size: 50},
-    },
-    // New version of a plot that doesn't come with a seed inside.
-    "PLOT2": {
         drawableComponent: {color: "maroon", shape: "SQUARE"},
         dirtComponent: {},
         interactableComponent: {effectComponent: "PLANT"},

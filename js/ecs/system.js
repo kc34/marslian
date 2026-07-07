@@ -177,3 +177,28 @@ class HitboxSystem {
         return triggers;
     }
 }
+
+class DirtSystem {
+    /**
+     * @param {FullComponentPool} componentPool
+     * @param {number} timeStep
+     */
+    static act(componentPool, timeStep) {
+        const dirtEntities = FullComponentPools.query(componentPool, ["dirtComponent"]);
+        for (const [dirtEntityId, dirtEntityComponents] of dirtEntities) {
+            // If the dirt entity contains a plantable, then grow it if space permits.
+            if (!dirtEntityComponents.dirtComponent.plantableId) {
+                continue;
+            }
+            const plantableEntityComponents = FullComponentPools.getEntityComponents(componentPool, dirtEntityComponents.dirtComponent.plantableId);
+
+            if (!!plantableEntityComponents.sizeComponent?.size
+                && !!dirtEntityComponents.sizeComponent?.size
+                && plantableEntityComponents.sizeComponent.size < dirtEntityComponents.sizeComponent.size) {
+                const growthRate = 1;
+                plantableEntityComponents.sizeComponent.size += growthRate * timeStep;
+                plantableEntityComponents.sizeComponent.size = Math.min(plantableEntityComponents.sizeComponent.size, dirtEntityComponents.sizeComponent.size);
+            }
+        }
+    }
+}
