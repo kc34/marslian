@@ -91,20 +91,20 @@ class AgeableSystem {
      * @param {FullComponentPool} componentPool
      * @param {number} timeStep
      * 
-     * @return {Array<[number, EffectComponentName]>}
+     * @return {Array<[number, EffectName]>}
      */
     static act(componentPool, timeStep) {
-        /** @type {Array<[number, EffectComponentName]>} */
+        /** @type {Array<[number, EffectName]>} */
         let triggers = [];
         const ageableQuery = FullComponentPools.query(componentPool, ["ageableComponent"]);
         for (const [entityId, entityComponents] of ageableQuery) {
             const ageableComponent = entityComponents.ageableComponent;
             entityComponents.ageableComponent.age += timeStep;
 
-            if (!!ageableComponent.effectComponent
+            if (!!ageableComponent.effectName
                 && !!ageableComponent.timeToEffect
                 && Math.floor(ageableComponent.age / ageableComponent.timeToEffect) > Math.floor((ageableComponent.age - timeStep) / ageableComponent.timeToEffect)) {
-                    triggers.push([entityId, ageableComponent.effectComponent]);
+                    triggers.push([entityId, ageableComponent.effectName]);
             }
         }
 
@@ -133,10 +133,10 @@ class HitboxSystem {
      * @param {FullComponentPool} componentPool
      * @param {number} timeStep
      * 
-     * @return {Array<[number, "DELETE" | EffectComponentName]>}
+     * @return {Array<[number, EffectName]>}
      */
     static act(componentPool, timeStep) {
-        /** @type {Array<[number, "DELETE" | EffectComponentName]>} */
+        /** @type {Array<[number, EffectName]>} */
         let triggers = [];
 
         const hitboxEntities = FullComponentPools.query(componentPool, ["hitboxComponent", "positionComponent", "alignmentComponent"]);
@@ -159,17 +159,17 @@ class HitboxSystem {
                 if (distance < hurtEntityComponents.hurtboxComponent.radius + hitEntityComponents.hitboxComponent.radius) {
                     hurtEntityComponents.hurtboxComponent.currentHealth -= hitEntityComponents.hitboxComponent?.damage;
                     if (hitEntityComponents.hitboxComponent.deleteOnHit) {
-                        triggers.push([hitEntity, "DELETE"]);
+                        triggers.push([hitEntity, EffectName.DEATH]);
                     }
                     
-                    if (!!hurtEntityComponents.hurtboxComponent.effectComponent) {
-                        triggers.push([hurtEntity, hurtEntityComponents.hurtboxComponent.effectComponent])
+                    if (!!hurtEntityComponents.hurtboxComponent.effectName) {
+                        triggers.push([hurtEntity, hurtEntityComponents.hurtboxComponent.effectName])
                     }
 
                     hitEntityComponents.hitboxComponent.timeToNextHit = hitEntityComponents.hitboxComponent.timeBetweenHits || 1;
                 }
                 if (hurtEntityComponents.hurtboxComponent.currentHealth <= 0) {
-                        triggers.push([hurtEntity, "DELETE"]);
+                        triggers.push([hurtEntity, EffectName.DEATH]);
                 }
             }
         }

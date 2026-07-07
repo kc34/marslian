@@ -51,12 +51,6 @@
 /** @typedef {keyof EntityComponents} ComponentName */
 
 /**
- * EffectComponentNames are components that can be triggered by other components.
- * 
- * @typedef {"spawnEffectComponent"|"giveItemEffectComponent"} EffectComponentName
- */
-
-/**
  * @typedef {Object} PositionComponent
  * @property {number} x
  * @property {number} y
@@ -74,12 +68,24 @@
  */
 
 /**
+ * @enum {string}
+ */
+const DrawableShape = Object.freeze({
+    CIRCLE: "CIRCLE",
+    NOPE: "NOPE",
+    PLOT: "PLOT",
+    SQUARE: "SQUARE",
+    TEXT: "TEXT",
+    TREE: "TREE",
+});
+
+/**
  * @typedef {Object} DrawableComponent
  * @property {string} color
  * @property {string} [label]
  * @property {string} [secondColor]
  * @property {string} [text]
- * @property {"CIRCLE"|"SQUARE"|"TREE"|"PLOT"|"TEXT"|"NOPE"} shape
+ * @property {DrawableShape} shape
  */
 
 /**
@@ -89,24 +95,49 @@
  */
 
 /**
+ * @enum {string}
+ */
+const EffectName = Object.freeze({
+    DEATH: "DEATH",
+    SPAWN: "SPAWN",
+});
+
+/**
  * @typedef {Object} AgeableComponent
  * @property {number} age
- * @property {keyof EntityComponents & EffectComponentName} [effectComponent]
+ * @property {EffectName} [effectName]
  * @property {number} [timeToEffect]
  */
+
+/**
+ * @enum {string}
+ */
+const InteractableEffectName = Object.freeze({
+    GIVE_ITEM: "GIVE_ITEM",
+    PLANT: "PLANT",
+});
 
 /**
  * Describes what happens if you left-click on this while it is in the world.
  * 
  * @typedef {Object} InteractableComponent
- * @property {(keyof EntityComponents & EffectComponentName) | "PLANT"} [effectComponent]
+ * @property {EffectName | InteractableEffectName} [effectName]
  */
+
+/**
+ * @enum {string}
+ */
+const UseBehavior = Object.freeze({
+    BOW: "BOW",
+    BUILD: "BUILD",
+    HOE: "HOE",
+});
 
 /**
  * Describes what happens if you left-click while this is in your inventory.
  * 
  * @typedef {Object} UsableComponent
- * @property {"BOW"|"BUILD"|"HOE"|"PLANT"} behavior
+ * @property {UseBehavior} behavior
  */
 
 /**
@@ -124,7 +155,7 @@
  * @property {number} maxHealth
  * @property {number} currentHealth
  * @property {number} [regenRate]
- * @property {keyof EntityComponents & EffectComponentName} [effectComponent]
+ * @property {EffectName} [effectName]
  */
 
 /**

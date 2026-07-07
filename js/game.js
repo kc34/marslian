@@ -96,17 +96,17 @@ class BaseModel {
      * TODO: Probably drop support for optional Player ID. (We probably don't want to give players items outside of Use ID.)
      * 
      * @param {number} entityId 
-     * @param {"DELETE" | EffectComponentName} effectComponentName
+     * @param {EffectName} effectName
      * @param {number} [playerIdToGiveItem]
      */
-    handleEffectComponent(entityId, effectComponentName, playerIdToGiveItem) {
-        if (effectComponentName === "DELETE") {
+    handleEffectComponent(entityId, effectName, playerIdToGiveItem) {
+        if (effectName === EffectName.DEATH) {
             this.deleteEntity(entityId);
             return;
         }
         const entityComponents = FullComponentPools.getEntityComponents(this.gameState.poolsByComponentName, entityId);
 
-        if (effectComponentName === "spawnEffectComponent") {
+        if (effectName === EffectName.SPAWN) {
             const ageableComponent = entityComponents.ageableComponent;
             if (!entityComponents.spawnEffectComponent || !entityComponents.positionComponent) {
                 return;
@@ -120,25 +120,6 @@ class BaseModel {
                     x: entityComponents.positionComponent.x + dx * 250,
                     y: entityComponents.positionComponent.y + dy * 250
                 }});
-        } else if (effectComponentName === "giveItemEffectComponent") {
-            if (!entityComponents.giveItemEffectComponent || playerIdToGiveItem === undefined) {
-                return;
-            }
-
-            const ageableComponent = entityComponents.ageableComponent;
-            if (ageableComponent !== undefined) {
-                if (ageableComponent.age < 10) {
-                    return;
-                }
-                ageableComponent.age = 0;
-            }
-
-            let entityComponentOverrides = {};
-            if (entityComponents.giveItemEffectComponent.sizeRatio && entityComponents.sizeComponent) {
-                entityComponentOverrides = {sizeComponent: {size: entityComponents.sizeComponent.size * entityComponents.giveItemEffectComponent.sizeRatio}};
-            }
-            const itemId = this.makeEntity(entityComponents.giveItemEffectComponent.giveItem, entityComponentOverrides);
-            this.addItemToPlayerInventory(playerIdToGiveItem, itemId);
         }
     }
 
@@ -250,8 +231,8 @@ class BaseModel {
                 return;
             }
 
-            if (targetEntity.interactableComponent?.effectComponent) {
-                if (targetEntity.interactableComponent?.effectComponent === "PLANT") {
+            if (targetEntity.interactableComponent?.effectName) {
+                if (targetEntity.interactableComponent?.effectName === InteractableEffectName.PLANT) {
                     if (targetEntity.dirtComponent) {
                         if (targetEntity.dirtComponent?.plantableId) {
                             this.addItemToPlayerInventory(gameEvent.useEvent.playerId, targetEntity.dirtComponent.plantableId);
@@ -265,8 +246,25 @@ class BaseModel {
                             }
                         }
                     }
+                } else if (targetEntity.interactableComponent.effectName === InteractableEffectName.GIVE_ITEM) {
+                    if (targetEntity.giveItemEffectComponent) {
+                        const ageableComponent = targetEntity.ageableComponent;
+                        if (ageableComponent !== undefined) {
+                            if (ageableComponent.age < 10) {
+                                return;
+                            }
+                            ageableComponent.age = 0;
+                        }
+
+                        let entityComponentOverrides = {};
+                        if (targetEntity.giveItemEffectComponent.sizeRatio && targetEntity.sizeComponent) {
+                            entityComponentOverrides = {sizeComponent: {size: targetEntity.sizeComponent.size * targetEntity.giveItemEffectComponent.sizeRatio}};
+                        }
+                        const itemId = this.makeEntity(targetEntity.giveItemEffectComponent.giveItem, entityComponentOverrides);
+                        this.addItemToPlayerInventory(playerId, itemId);
+                    }
                 } else {
-                    this.handleEffectComponent(gameEvent.useEvent.targetId, targetEntity.interactableComponent.effectComponent, gameEvent.useEvent.playerId);
+                    this.handleEffectComponent(gameEvent.useEvent.targetId, targetEntity.interactableComponent.effectName);
                 }
             }
         } else if (!!gameEvent.collectEvent) {

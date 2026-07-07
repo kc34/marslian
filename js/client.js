@@ -192,60 +192,67 @@ class LocalClient extends BaseModel {
 
         const maxAge = 10;
         const ageRatio = Math.min((age || maxAge) / maxAge, 1);
-        if (drawableComponent.shape === 'CIRCLE') {
-            ctx.shadowOffsetX = 2;
-            ctx.shadowOffsetY = 2;
-            ctx.shadowColor = "black";
+        switch (drawableComponent.shape) {
+            case DrawableShape.CIRCLE:
+                ctx.shadowOffsetX = 2;
+                ctx.shadowOffsetY = 2;
+                ctx.shadowColor = "black";
 
-            this.drawCircle(drawableComponent, ctx, screenX, screenY, size);
-        } else if (drawableComponent.shape === 'SQUARE') {
-            // squares often represent tiles or walls, which we don't want to shadow over each other
-            // roads/water we might be able to disable, but not clear how to connected walls yet
+                this.drawCircle(drawableComponent, ctx, screenX, screenY, size);
+                break;
+            case DrawableShape.SQUARE:
+                // squares often represent tiles or walls, which we don't want to shadow over each other
+                // roads/water we might be able to disable, but not clear how to connected walls yet
 
-            ctx.beginPath();
-            // rect uses the top left corner
-            ctx.rect(screenX - size / 2, screenY - size / 2, size, size);
-            ctx.fillStyle = drawableComponent.color;
-            ctx.fill();
-        } else if (drawableComponent.shape === 'PLOT') {
-            ctx.beginPath();
-            ctx.rect(screenX - size / 2, screenY - size / 2, size, size);
-            ctx.fillStyle = drawableComponent.color;
-            ctx.fill();
+                ctx.beginPath();
+                // rect uses the top left corner
+                ctx.rect(screenX - size / 2, screenY - size / 2, size, size);
+                ctx.fillStyle = drawableComponent.color;
+                ctx.fill();
+                break;
+            case DrawableShape.PLOT:
+                ctx.beginPath();
+                ctx.rect(screenX - size / 2, screenY - size / 2, size, size);
+                ctx.fillStyle = drawableComponent.color;
+                ctx.fill();
 
-            ctx.shadowOffsetX = 2;
-            ctx.shadowOffsetY = 2;
-            ctx.shadowColor = "black";
+                ctx.shadowOffsetX = 2;
+                ctx.shadowOffsetY = 2;
+                ctx.shadowColor = "black";
 
-            ctx.beginPath();
-            ctx.arc(screenX, screenY, size / 2 * ageRatio, 0, 2 * Math.PI);
-            ctx.fillStyle = drawableComponent.secondColor || "#ffffff";
-            ctx.fill();
-        } else if (drawableComponent.shape === 'TREE') {
-            ctx.beginPath();
-            ctx.rect(screenX - (size / 6), screenY + size / 2, size / 3, - size / 3);
-            ctx.fillStyle = drawableComponent.color;
-            ctx.fill();
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, size / 2 * ageRatio, 0, 2 * Math.PI);
+                ctx.fillStyle = drawableComponent.secondColor || "#ffffff";
+                ctx.fill();
+                break;
+            case DrawableShape.TREE:
+                ctx.beginPath();
+                ctx.rect(screenX - (size / 6), screenY + size / 2, size / 3, - size / 3);
+                ctx.fillStyle = drawableComponent.color;
+                ctx.fill();
 
-            ctx.shadowOffsetX = 2;
-            ctx.shadowOffsetY = 2;
-            ctx.shadowColor = "black";
+                ctx.shadowOffsetX = 2;
+                ctx.shadowOffsetY = 2;
+                ctx.shadowColor = "black";
 
-            ctx.beginPath();
-            const radius = (size) / 2 * ageRatio;
-            ctx.arc(screenX, screenY + (1/6) * size - radius, radius, 0, 2 * Math.PI);
-            ctx.fillStyle = drawableComponent.secondColor || "green";
-            ctx.fill();
-        } else if (drawableComponent.shape === 'NOPE') {
-            ctx.fillStyle = drawableComponent.color;
-		    ctx.font = Math.round(size / 2).toString() + "px Courier New";
-		    ctx.fillText("NO", screenX - ctx.measureText("NO").width / 2, screenY);
-		    ctx.fillText("PE", screenX - ctx.measureText("PE").width / 2, screenY + size * 0.45);
-        } else if (drawableComponent.shape === 'TEXT') {
-            const text = drawableComponent.text || "?";
-            ctx.fillStyle = drawableComponent.color;
-		    ctx.font = Math.round(size).toString() + "px Courier New";
-		    ctx.fillText(text, screenX - ctx.measureText(text).width / 2, screenY + size * 0.25);
+                ctx.beginPath();
+                const radius = (size) / 2 * ageRatio;
+                ctx.arc(screenX, screenY + (1/6) * size - radius, radius, 0, 2 * Math.PI);
+                ctx.fillStyle = drawableComponent.secondColor || "green";
+                ctx.fill();
+                break;
+            case DrawableShape.NOPE:
+                ctx.fillStyle = drawableComponent.color;
+                ctx.font = Math.round(size / 2).toString() + "px Courier New";
+                ctx.fillText("NO", screenX - ctx.measureText("NO").width / 2, screenY);
+                ctx.fillText("PE", screenX - ctx.measureText("PE").width / 2, screenY + size * 0.45);
+                break;
+            case DrawableShape.TEXT:
+                const text = drawableComponent.text || "?";
+                ctx.fillStyle = drawableComponent.color;
+                ctx.font = Math.round(size).toString() + "px Courier New";
+                ctx.fillText(text, screenX - ctx.measureText(text).width / 2, screenY + size * 0.25);
+                break;
         }
 
         this.drawLabel(drawableComponent, ctx, screenX, screenY, size);
