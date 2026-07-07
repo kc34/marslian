@@ -38,6 +38,8 @@
  */
 
 /**
+ * Sent when a Player clicks on an object.
+ * 
  * @typedef {Object} UseEvent
  * @property {number} playerId
  * @property {number} [playerHoldingId] -- Entity ID of whatever the Player is holding
@@ -51,6 +53,8 @@
  */
 
 /**
+ * Sent when a Player clicks on the ground.
+ * 
  * @typedef {Object} BuildEvent
  * @property {number} playerId
  * @property {number} itemId

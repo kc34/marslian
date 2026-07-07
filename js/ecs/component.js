@@ -18,6 +18,8 @@
  * @property {Object.<number, GiveItemEffectComponent>} giveItemEffectComponents
  * @property {Object.<number, StackableComponent>} stackableComponents
  * @property {Object.<number, CollectableComponent>} collectableComponents
+ * @property {Object.<number, DirtComponent>} dirtComponents
+ * @property {Object.<number, PlantableComponent>} plantableComponents
  */
 
 /** @typedef {keyof FullComponentPool} ComponentPoolName */
@@ -42,6 +44,8 @@
  * @property {GiveItemEffectComponent} [giveItemEffectComponent]
  * @property {StackableComponent} [stackableComponent]
  * @property {CollectableComponent} [collectableComponent]
+ * @property {DirtComponent} [dirtComponent]
+ * @property {PlantableComponent} [plantableComponent]
  */
 
 /** @typedef {keyof EntityComponents} ComponentName */
@@ -95,14 +99,14 @@
  * Describes what happens if you left-click on this while it is in the world.
  * 
  * @typedef {Object} InteractableComponent
- * @property {keyof EntityComponents & EffectComponentName} [effectComponent]
+ * @property {(keyof EntityComponents & EffectComponentName) | "PLANT"} [effectComponent]
  */
 
 /**
  * Describes what happens if you left-click while this is in your inventory.
  * 
  * @typedef {Object} UsableComponent
- * @property {"BOW"|"BUILD"|"HOE"} behavior
+ * @property {"BOW"|"BUILD"|"HOE"|"PLANT"} behavior
  */
 
 /**
@@ -153,6 +157,19 @@
  */
 
 /**
+ * Whether another entity with PlantableComponent can be PLANTED in this entity.
+ * 
+ * @typedef {Object} DirtComponent
+ * @property {number} [plantableId]
+ */
+
+/**
+ * Whether this entity can be PLANTED into an entity with DirtComponent.
+ * 
+ * @typedef {Object} PlantableComponent
+ */
+
+/**
  * Utility class for working with a full set of ComponentPools.
  */
 class FullComponentPools {
@@ -180,6 +197,8 @@ class FullComponentPools {
             giveItemEffectComponents: {},
             stackableComponents: {},
             collectableComponents: {},
+            dirtComponents: {},
+            plantableComponents: {},
         }
     }
 

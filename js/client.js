@@ -133,7 +133,7 @@ class LocalClient extends BaseModel {
 		ctx.fillRect( 0 , 0, canvas.width, canvas.height);
 
         const entityQuery = this.query(["drawableComponent", "positionComponent", "sizeComponent"]);
-        for (const [entityId, {drawableComponent, positionComponent, sizeComponent}] of entityQuery) {
+        for (const [entityId, {positionComponent}] of entityQuery) {
             const cameraPositionComponent = !!this.cameraId ? this.gameState.poolsByComponentName.positionComponents[this.cameraId] : undefined;
             var screenX;
             var screenY;
@@ -150,7 +150,7 @@ class LocalClient extends BaseModel {
                 ctx,
                 screenX,
                 screenY,
-                sizeComponent.size / scale);
+                scale);
         }
 
         if (this.playerId) {
@@ -159,17 +159,19 @@ class LocalClient extends BaseModel {
                 let itemX = canvas.width - 200 - ((playerInventory.length - 1) * 100) + (i * 100) + 50;
                 let itemY = canvas.height - 50;
                 let size = 100;
+                let scale = 1;
                 let label = "";
                 if (i == playerInventory.length - 1) {
                     itemX = canvas.width - 100;
                     itemY = canvas.height - 100;
                     size = 200;
+                    scale = 0.5;
                     label = "holding";
                 }
                 // draw a background square to hold the entity.
                 this.drawCircle({color: "#ffffff", shape: "CIRCLE", label}, ctx, itemX, itemY, size);
                 this.drawLabel({color: "#ffffff", shape: "CIRCLE", label}, ctx, itemX, itemY, size);
-                this.drawEntity(playerInventory[i], ctx, itemX, itemY, size / 2);
+                this.drawEntity(playerInventory[i], ctx, itemX, itemY, scale);
             }
         }
     }
@@ -179,10 +181,11 @@ class LocalClient extends BaseModel {
      * @param {CanvasRenderingContext2D} ctx
      * @param {number} screenX
      * @param {number} screenY
-     * @param {number} size
+     * @param {number} scale
      */
-    drawEntity(entityId, ctx, screenX, screenY, size) {
+    drawEntity(entityId, ctx, screenX, screenY, scale) {
         const entityComponents = this.getEntityComponents(entityId);
+        let size = (entityComponents.sizeComponent?.size || 50) / scale;
         let drawableComponent = entityComponents.drawableComponent || {color: "red", shape: "NOPE"};
         let age = entityComponents.ageableComponent?.age || 10;
         let healthRatio = entityComponents.hurtboxComponent ? entityComponents.hurtboxComponent.currentHealth / entityComponents.hurtboxComponent.maxHealth : undefined;
@@ -272,6 +275,10 @@ class LocalClient extends BaseModel {
         // reset shadow in case it was set
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
+
+        if (!!entityComponents.dirtComponent?.plantableId) {
+            this.drawEntity(entityComponents.dirtComponent.plantableId, ctx, screenX, screenY, scale);
+        }
     }
 
     /**

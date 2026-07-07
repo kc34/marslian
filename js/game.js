@@ -4,18 +4,24 @@
  * @property {FullComponentPool} poolsByComponentName
  * @property {Object<number, boolean>} entityIds
  * @property {Object<number, Array<number>>} playerInventories
+ * @property {boolean} everythingCollectable
+ * @property {boolean} everythingPlantable
  */
 
 /**
  * Contains core game logic, which is essentially holding game state and handling game events.
  */
 class BaseModel {
+
     /** @type {GameState} */
     gameState = {
         frameCount: 0,
         poolsByComponentName: FullComponentPools.newComponentPool(),
         entityIds: {},
         playerInventories: {},
+        // Funny stupid debug options
+        everythingCollectable: true,
+        everythingPlantable: true,
     }
 
     debugName = "ERROR";
@@ -84,6 +90,9 @@ class BaseModel {
     }
 
     /**
+     * TODO: Probably just "handle effect".
+     * TODO: Probably drop support for optional Player ID. (We probably don't want to give players items outside of Use ID.)
+     * 
      * @param {number} entityId 
      * @param {"DELETE" | EffectComponentName} effectComponentName
      * @param {number} [playerIdToGiveItem]
@@ -239,7 +248,16 @@ class BaseModel {
             }
 
             if (targetEntity.interactableComponent?.effectComponent) {
-                this.handleEffectComponent(gameEvent.useEvent.targetId, targetEntity.interactableComponent.effectComponent, gameEvent.useEvent.playerId)
+                if (targetEntity.interactableComponent?.effectComponent === "PLANT") {
+                    if (gameEvent.useEvent.playerHoldingId && (this.gameState.everythingPlantable || this.gameState.poolsByComponentName.plantableComponents[gameEvent.useEvent.playerHoldingId])) {
+                        // delete from player inventory, and put into plot
+                        this.gameState.playerInventories[gameEvent.useEvent.playerId].splice(this.gameState.playerInventories[gameEvent.useEvent.playerId].indexOf(gameEvent.useEvent.playerHoldingId), 1);
+                        this.gameState.poolsByComponentName.dirtComponents[gameEvent.useEvent.targetId].plantableId = gameEvent.useEvent.playerHoldingId;
+                    }
+
+                } else {
+                    this.handleEffectComponent(gameEvent.useEvent.targetId, targetEntity.interactableComponent.effectComponent, gameEvent.useEvent.playerId);
+                }
             }
         } else if (!!gameEvent.collectEvent) {
             const playerId = gameEvent.collectEvent.playerId;
@@ -253,7 +271,7 @@ class BaseModel {
             if (Math.abs(targetPositionComponent.x - playerPositionComponent.x) > 200 || Math.abs(targetPositionComponent.y - playerPositionComponent.y) > 200) {
                 return;
             }
-            if (!this.gameState.poolsByComponentName.collectableComponents[itemId]) {
+            if (!this.gameState.poolsByComponentName.collectableComponents[itemId] && !this.gameState.everythingCollectable) {
                 return;
             }
 
@@ -281,21 +299,21 @@ class BaseModel {
                             y: (gameEvent.buildEvent.y - playerPositionComponent.y) / distance * 1000
                         },
                     });
-            } else if (this.gameState.poolsByComponentName.usableComponents[gameEvent.buildEvent.itemId]?.behavior === "BUILD") {
-                // delete from player inventory, and put into world
-                this.gameState.playerInventories[gameEvent.buildEvent.playerId].splice(this.gameState.playerInventories[gameEvent.buildEvent.playerId].indexOf(gameEvent.buildEvent.itemId), 1);
-                this.gameState.poolsByComponentName.positionComponents[gameEvent.buildEvent.itemId] = {x: gameEvent.buildEvent.x, y: gameEvent.buildEvent.y};
             } else if (this.gameState.poolsByComponentName.usableComponents[gameEvent.buildEvent.itemId]?.behavior === "HOE") {
                 const playerPositionComponent = this.gameState.poolsByComponentName.positionComponents[gameEvent.buildEvent.playerId];
                 const distance = Math.pow(Math.pow(gameEvent.buildEvent.x - playerPositionComponent.x, 2) + Math.pow(gameEvent.buildEvent.y - playerPositionComponent.y, 2), 0.5); // used for norming
                 this.makeEntity(
-                    "PLOT",
+                    "PLOT2",
                     {
                         positionComponent: {
                             x: gameEvent.buildEvent.x,
                             y: gameEvent.buildEvent.y}
                     });
-            }
+            } else if (this.gameState.poolsByComponentName.usableComponents[gameEvent.buildEvent.itemId]?.behavior === "BUILD" || this.gameState.everythingCollectable) {
+                // delete from player inventory, and put into world
+                this.gameState.playerInventories[gameEvent.buildEvent.playerId].splice(this.gameState.playerInventories[gameEvent.buildEvent.playerId].indexOf(gameEvent.buildEvent.itemId), 1);
+                this.gameState.poolsByComponentName.positionComponents[gameEvent.buildEvent.itemId] = {x: gameEvent.buildEvent.x, y: gameEvent.buildEvent.y};
+            } 
         } else if (!!gameEvent.setPlayerInventoryEvent) {
             this.gameState.playerInventories[gameEvent.setPlayerInventoryEvent.playerId] = gameEvent.setPlayerInventoryEvent.playerInventory;
         } else {

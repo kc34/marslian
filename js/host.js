@@ -132,6 +132,12 @@ class LocalHost extends BaseModel {
                 drawableComponent: {color: "orange", shape: "SQUARE", label: "HOME DEPOT"},
                 giveItemEffectComponent: {giveItem: "HOE"},
             });
+        this.makeEntity("WORKSHOP",
+            {
+                positionComponent: {x: 10 * 50, y: -10 * 50},
+                drawableComponent: {color: "pink", shape: "SQUARE", label: "PIERRE'S"},
+                giveItemEffectComponent: {giveItem: "SEED"},
+            });
 
 
         // wilderness

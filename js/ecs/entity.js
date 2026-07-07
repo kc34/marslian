@@ -5,6 +5,7 @@ const PREFABS = Object.freeze({
         alignmentComponent: {alignment: "GOOD"},
         collectableComponent: {}, // probably shouldn't be here but it's really funny
         hurtboxComponent: {radius: 12.5, maxHealth: 500, currentHealth: 500},
+        plantableComponent: {}, // lmao
         sizeComponent: {size: 50},
         usableComponent: {behavior: "BUILD"},
     },
@@ -43,7 +44,19 @@ const PREFABS = Object.freeze({
         giveItemEffectComponent: {giveItem: "CORN", sizeRatio: 1},
         interactableComponent: {effectComponent: "giveItemEffectComponent"},
         sizeComponent: {size: 50},
-        usableComponent: {behavior: "BUILD"},
+    },
+    // New version of a plot that doesn't come with a seed inside.
+    "PLOT2": {
+        drawableComponent: {color: "maroon", shape: "SQUARE"},
+        dirtComponent: {},
+        interactableComponent: {effectComponent: "PLANT"},
+        sizeComponent: {size: 50},
+    },
+    "SEED": {
+        drawableComponent: {color: "pink", shape: "CIRCLE", label: "seed"},
+        plantableComponent: {},
+        sizeComponent: {size: 5},
+        stackableComponent: {},
     },
     "TREE": {
         ageableComponent: {age: 0},
