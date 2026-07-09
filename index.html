@@ -5,13 +5,37 @@
   <script src=https://unpkg.com/peerjs@1.5.5/dist/peerjs.js></script>
 </head>
 <body>
-  <div id="menu-screen" class="full-screen">
-    <h1>Lilian on Mars</h1>
+  <div id="menu-screen" class="full-screen" style="margin:10px">
+    <h1>Webfarming with Lilian</h1>
+    Like Webfishing, but farming.
     <div id="main-menu">
+      <h2>How To Play</h2>
+      Controls:
+      <ul>
+        <li>WASD to walk around</li>
+        <li>Left click to INTERACT with objects and/or USE a held item</li>
+        <li>Right click to COLLECT a collectable object.</li>
+        <li>Shift to run</li>
+        <li>Tab to cycle through inventory.</li>
+        <li>Goal of the game: IDK</li>
+      </ul>
+
+      Tips:
+      <ul>
+        <li>INTERACT with Home Depot to get a hoe.</li>
+        <li>USE the hoe to place a plot.</li>
+        <li>INTERACT with Pierre's to get a seed.</li>
+        <li>INTERACT with a plot while holding a seed to plant it.</li>
+        <li>INTERACT with the Workshop to get a bow.</li>
+        <li>USE the bow to shoot arrows.</li>
+      </ul>
+      <h2>Get started!</h2>
       <div>
-        <input type="text" id="username-input" placeholder="Enter Username" value="Lilian <3" />
+        <p>Choose your name and color</p>
+        <input type="text" id="username-input" placeholder="Enter Username" value="your name here!" />
         <input type="color" id="color-picker-input" value="#7b00ff" />
       </div>
+      <p>Pick a mode</p>
       <button id="single-player-button">
         Singleplayer
       </button>
